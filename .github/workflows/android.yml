@@ -24,12 +24,6 @@ jobs:
           distribution: temurin
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@v4.0.2
-      - name: Build Debug APK
-        run: ./gradlew clean assembleDebug
-      - uses: actions/upload-artifact@v4
-        with:
-          name: app-debug.apk
-          path: app/build/outputs/apk/debug/*.apk
 
       - name: Build Signed Release AAB & APK (Play Store)
         if: github.event_name != 'pull_request'
@@ -42,11 +36,11 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
-            ./gradlew bundleRelease assembleRelease
+            ./gradlew clean bundleRelease assembleRelease
             ls -la app/build/outputs/apk/release/ app/build/outputs/bundle/release/ || true
           else
             echo "KEYSTORE_BASE64 secret is not set, building unsigned release APK."
-            ./gradlew assembleRelease
+            ./gradlew clean assembleRelease
             ls -la app/build/outputs/apk/release/ || true
           fi
       - name: Remove temporary keystore
