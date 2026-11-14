@@ -12,10 +12,8 @@ package co.aulaa.keyboard.payment.ui
 
 import android.graphics.BitmapFactory
 import android.util.LruCache
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -40,6 +38,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Backspace
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -56,11 +67,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
@@ -115,16 +124,13 @@ private data class KeyboardPanelTokens(
     val windowBg: Color,
     val keyBg: Color,
     val keyAltBg: Color,
-    val inputBg: Color,
+    val containerBg: Color,
     val fg: Color,
     val mutedFg: Color,
-    val border: Color,
     val keyShape: Shape,
-    val brandMid: Color,
     val brandDeep: Color,
     val brandLight: Color,
     val onBrand: Color,
-    val brandTint: Color,
 )
 
 @Composable
@@ -142,24 +148,20 @@ private fun rememberKeyboardPanelTokens(): KeyboardPanelTokens {
     val mutedFg = keyHintStyle.foreground(default = fg.copy(alpha = 0.62f))
     val keyShape = keyStyle.shape()
     val isDark = windowBg.red < 0.35f && windowBg.green < 0.35f && windowBg.blue < 0.35f
-    val inputBg = if (isDark) keyBg.copy(alpha = 0.52f) else keyBg
-    val border = fg.copy(alpha = if (isDark) 0.12f else 0.10f)
+    val containerBg = if (isDark) keyBg.copy(alpha = 0.55f) else keyBg.copy(alpha = 0.85f)
 
-    return remember(windowBg, keyBg, keyAltBg, inputBg, fg, mutedFg, border, keyShape, p) {
+    return remember(windowBg, keyBg, keyAltBg, containerBg, fg, mutedFg, keyShape, p) {
         KeyboardPanelTokens(
             windowBg = windowBg,
             keyBg = keyBg,
             keyAltBg = keyAltBg,
-            inputBg = inputBg,
+            containerBg = containerBg,
             fg = fg,
             mutedFg = mutedFg,
-            border = border,
             keyShape = keyShape,
-            brandMid = p.brandMid,
             brandDeep = p.brandDeep,
             brandLight = p.brandLight,
             onBrand = p.onBrand,
-            brandTint = p.brandTint,
         )
     }
 }
@@ -194,11 +196,6 @@ private object ProductThumbnailCache {
     }
 }
 
-/**
- * Formats project display name according to environment:
- * - Live (`isProd == true`): `Project Name` (paired with blue dot)
- * - Sandbox (`isProd == false`): `Project Name (sandbox)` (paired with red dot)
- */
 internal fun Project.displayLabel(): String {
     return if (isProd) name else "$name (sandbox)"
 }
@@ -241,7 +238,6 @@ fun PaymentPanel(
     var orderId by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }
     var createdLink by remember { mutableStateOf<PaymentLink?>(null) }
-    var checkingStatus by remember { mutableStateOf(false) }
 
     var products by remember { mutableStateOf<List<Product>>(emptyList()) }
     var loadingData by remember { mutableStateOf(false) }
@@ -252,7 +248,7 @@ fun PaymentPanel(
     val currentOrderId by rememberUpdatedState(orderId)
     val currentSearch by rememberUpdatedState(search)
 
-    // Route keyboard key presses directly into Order ID or Product Search when active
+    // Route keyboard key presses directly into Nama Invoice or Cari Produk when active
     DisposableEffect(imeController, activeTextField) {
         val field = activeTextField
         if (field != null) {
@@ -429,15 +425,6 @@ fun PaymentPanel(
                 creating = false
                 createdLink = link
                 screen = Screen.Ready
-                if (link.expiresAt.isNullOrBlank()) {
-                    runCatching { api.transactionStatus(link.id) }
-                        .onSuccess { updated ->
-                            createdLink = updated.copy(
-                                amount = if (updated.amount > 0) updated.amount else link.amount,
-                                orderId = updated.orderId ?: link.orderId,
-                            )
-                        }
-                }
             }.onFailure { err ->
                 creating = false
                 if (err is AulaaApiException && err.isUnauthorized) {
@@ -449,30 +436,11 @@ fun PaymentPanel(
         }
     }
 
-    fun triggerCheckStatus() {
-        val current = createdLink ?: return
-        checkingStatus = true
-        scope.launch {
-            runCatching { api.transactionStatus(current.id) }
-                .onSuccess { updated ->
-                    createdLink = updated.copy(
-                        amount = if (updated.amount > 0) updated.amount else current.amount,
-                        orderId = updated.orderId ?: current.orderId,
-                        expiresAt = updated.expiresAt ?: current.expiresAt,
-                    )
-                }
-                .onFailure { err ->
-                    errorMessage = err.message
-                }
-            checkingStatus = false
-        }
-    }
-
     Column(
         modifier = modifier
             .fillMaxWidth()
             .background(t.windowBg)
-            .padding(top = 8.dp),
+            .padding(top = 6.dp),
     ) {
         BoxWithConstraints(
             modifier = Modifier
@@ -486,12 +454,14 @@ fun PaymentPanel(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
-                    // ---- Header Row: Logo + Aulaa + Merchant Name + Actions ----
+                    // ---- Header Row: Logo + Aulaa + Merchant Name + Refresh & Close Icons ----
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(32.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        AulaaBrandMark(size = 22.dp, showContainer = false)
+                        AulaaBrandMark(size = 20.dp, showContainer = false)
                         Spacer(Modifier.width(7.dp))
                         Text(
                             text = "Aulaa",
@@ -513,18 +483,29 @@ fun PaymentPanel(
                         }
 
                         if (isPaired && !tokenRevoked) {
-                            IconSquare(
-                                glyph = if (loadingData) "…" else "↻",
-                                t = t,
+                            IconButton(
                                 onClick = { loadMerchantData() },
-                            )
-                            Spacer(Modifier.width(6.dp))
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Sinkronkan",
+                                    tint = t.mutedFg,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         }
-                        IconSquare(
-                            glyph = "✕",
-                            t = t,
+                        IconButton(
                             onClick = onClose,
-                        )
+                            modifier = Modifier.size(32.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tutup",
+                                tint = t.mutedFg,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
                     }
 
                     if (!isPaired || tokenRevoked) {
@@ -537,8 +518,8 @@ fun PaymentPanel(
                         return@BoxWithConstraints
                     }
 
-                    // ---- Dedicated Tabs Row (separated from logo row) ----
-                    SleekTabs(
+                    // ---- Dedicated Tabs Row (FlorisBoard key-styled segmented row) ----
+                    KeyboardTabs(
                         tab = tab,
                         t = t,
                         onSelect = {
@@ -582,13 +563,8 @@ fun PaymentPanel(
                                     onCreate = { triggerCreateLink() },
                                     screen = screen,
                                     createdLink = createdLink,
-                                    checkingStatus = checkingStatus,
-                                    onCheckStatus = { triggerCheckStatus() },
                                     onCommit = {
-                                        createdLink?.let {
-                                            onCommitText(it.payUrl)
-                                            onClose()
-                                        }
+                                        createdLink?.let { onCommitText(it.payUrl) }
                                     },
                                     onAgain = {
                                         createdLink = null
@@ -600,12 +576,7 @@ fun PaymentPanel(
                                     LinkReady(
                                         link = createdLink!!,
                                         t = t,
-                                        checkingStatus = checkingStatus,
-                                        onCheckStatus = { triggerCheckStatus() },
-                                        onCommit = {
-                                            onCommitText(createdLink!!.payUrl)
-                                            onClose()
-                                        },
+                                        onCommit = { onCommitText(createdLink!!.payUrl) },
                                         onAgain = {
                                             createdLink = null
                                             screen = Screen.Form
@@ -651,14 +622,13 @@ fun PaymentPanel(
                                 onSend = { prod ->
                                     activeTextField = null
                                     onCommitText(prod.buyUrl)
-                                    onClose()
                                 },
                             )
                         }
                     }
                 }
 
-                // ---- In-Panel Floating Project Dropdown Overlay (scrollable, matches keyboard theme) ----
+                // ---- In-Panel Floating Project Dropdown Overlay ----
                 if (projectDropdownOpen && projects.isNotEmpty() && tab == Tab.Transaksi) {
                     Box(
                         modifier = Modifier
@@ -672,13 +642,13 @@ fun PaymentPanel(
                     Column(
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(top = 104.dp)
+                            .padding(top = 108.dp)
                             .fillMaxWidth(if (isWideScreen) 0.52f else 1f)
                             .heightIn(max = 160.dp)
                             .zIndex(10f)
-                            .shadow(8.dp, t.keyShape)
-                            .background(t.windowBg, t.keyShape)
-                            .border(BorderStroke(1.dp, t.brandMid), t.keyShape)
+                            .shadow(6.dp, t.keyShape)
+                            .clip(t.keyShape)
+                            .background(t.keyBg, t.keyShape)
                             .verticalScroll(rememberScrollState()),
                     ) {
                         projects.forEachIndexed { index, prj ->
@@ -687,8 +657,8 @@ fun PaymentPanel(
                                 Box(
                                     Modifier
                                         .fillMaxWidth()
-                                        .height(1.dp)
-                                        .background(t.border),
+                                        .height(0.5.dp)
+                                        .background(t.fg.copy(alpha = 0.08f)),
                                 )
                             }
                             Row(
@@ -701,7 +671,7 @@ fun PaymentPanel(
                                         selectedProject = prj
                                         loadMerchantData(projectIdFilter = prj.id)
                                     }
-                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
                             ) {
                                 ProjectEnvironmentDot(isProd = prj.isProd)
                                 Spacer(Modifier.width(8.dp))
@@ -715,11 +685,11 @@ fun PaymentPanel(
                                     modifier = Modifier.weight(1f),
                                 )
                                 if (isSelected) {
-                                    Text(
-                                        text = "✓",
-                                        color = t.brandLight,
-                                        fontSize = 12.5.sp,
-                                        fontWeight = FontWeight.Bold,
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = null,
+                                        tint = t.brandLight,
+                                        modifier = Modifier.size(16.dp),
                                     )
                                 }
                             }
@@ -740,7 +710,7 @@ fun PaymentPanel(
 }
 
 /* ----------------------------------------------------------------------- */
-/* Project Selector Trigger & Nama Invoice (Opsional) Field                */
+/* Project Selector & Nama Invoice (Opsional) Field                        */
 /* ----------------------------------------------------------------------- */
 
 @Composable
@@ -755,33 +725,31 @@ private fun ProjectSelectorTrigger(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(36.dp)
+            .height(38.dp)
+            .shadow(1.5.dp, t.keyShape)
+            .clip(t.keyShape)
             .background(t.keyBg, t.keyShape)
-            .border(
-                BorderStroke(1.dp, if (expanded) t.brandMid else t.border),
-                t.keyShape,
-            )
             .clickable { onClick() }
             .padding(horizontal = 10.dp),
     ) {
         if (selectedProject != null) {
             ProjectEnvironmentDot(isProd = selectedProject.isProd)
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(7.dp))
         }
         Text(
             text = selectedProject?.displayLabel() ?: "Pilih project",
             color = t.fg,
-            fontSize = 12.sp,
+            fontSize = 12.5.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        Spacer(Modifier.width(4.dp))
-        Text(
-            text = if (expanded) "▴" else "▾",
-            color = t.mutedFg,
-            fontSize = 11.sp,
+        Icon(
+            imageVector = if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+            contentDescription = null,
+            tint = t.mutedFg,
+            modifier = Modifier.size(18.dp),
         )
     }
 }
@@ -799,12 +767,9 @@ private fun InlineOrderIdField(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(36.dp)
-            .background(t.inputBg, t.keyShape)
-            .border(
-                BorderStroke(1.dp, if (isEditing) t.brandMid else t.border),
-                t.keyShape,
-            )
+            .height(38.dp)
+            .clip(t.keyShape)
+            .background(if (isEditing) t.keyBg else t.containerBg, t.keyShape)
             .clickable { onToggleEdit() }
             .padding(horizontal = 10.dp),
     ) {
@@ -816,40 +781,41 @@ private fun InlineOrderIdField(
                 else -> "Nama Invoice (Opsional)"
             },
             color = if (orderId.isEmpty() && !isEditing) t.mutedFg else t.fg,
-            fontSize = 12.sp,
+            fontSize = 12.5.sp,
             fontWeight = if (orderId.isNotEmpty()) FontWeight.Medium else FontWeight.Normal,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
         if (orderId.isNotEmpty()) {
-            Text(
-                text = "✕",
-                color = t.mutedFg,
-                fontSize = 11.sp,
+            Icon(
+                imageVector = Icons.Default.Clear,
+                contentDescription = "Hapus",
+                tint = t.mutedFg,
                 modifier = Modifier
-                    .clickable { onClear() }
-                    .padding(horizontal = 4.dp),
+                    .size(16.dp)
+                    .clickable { onClear() },
             )
         }
         if (isEditing) {
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(6.dp))
             Text(
-                text = "OK",
+                text = "Selesai",
                 color = t.onBrand,
-                fontSize = 10.5.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier
+                    .clip(t.keyShape)
                     .background(t.brandDeep, t.keyShape)
                     .clickable { onToggleEdit() }
-                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
             )
         }
     }
 }
 
 /* ----------------------------------------------------------------------- */
-/* Nominal Display + Quick Chips + Keyboard-Matched Numpad                 */
+/* Nominal Display + Quick Chips + FlorisBoard-Matched Numpad              */
 /* ----------------------------------------------------------------------- */
 
 @Composable
@@ -865,20 +831,17 @@ private fun NominalBox(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(44.dp)
-            .background(t.inputBg, t.keyShape)
-            .border(
-                BorderStroke(1.dp, if (showNumpad) t.brandMid else t.border),
-                t.keyShape,
-            )
+            .height(46.dp)
+            .clip(t.keyShape)
+            .background(t.containerBg, t.keyShape)
             .then(if (onToggleNumpad != null) Modifier.clickable { onToggleNumpad() } else Modifier)
-            .padding(horizontal = 11.dp),
+            .padding(horizontal = 12.dp),
     ) {
-        Text("Rp ", color = t.mutedFg, fontSize = 13.5.sp)
+        Text("Rp ", color = t.mutedFg, fontSize = 14.sp)
         Text(
             text = if (amount > 0L) formatIdr(amount).removePrefix("Rp").trim() else "0",
             color = if (amount > 0L) t.fg else t.mutedFg,
-            fontSize = 20.sp,
+            fontSize = 21.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
         )
@@ -889,20 +852,28 @@ private fun NominalBox(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
+                    .clip(t.keyShape)
                     .background(t.keyAltBg, t.keyShape)
-                    .border(BorderStroke(1.dp, t.border), t.keyShape)
                     .clickable { onReset() }
                     .padding(horizontal = 8.dp, vertical = 3.dp),
             )
             Spacer(Modifier.width(6.dp))
         }
         if (onToggleNumpad != null) {
-            Text(
-                text = if (showNumpad) "Selesai ▴" else "Ketik nominal ▾",
-                color = t.brandLight,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium,
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = if (showNumpad) "Selesai" else "Ketik nominal",
+                    color = t.brandLight,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+                Icon(
+                    imageVector = if (showNumpad) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                    tint = t.brandLight,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
     }
 }
@@ -917,24 +888,25 @@ private fun QuickNominalChips(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         quickNominals.forEach { preset ->
             val on = preset == amount
-            Text(
-                text = formatIdr(preset),
-                color = if (on) t.fg else t.mutedFg,
-                fontSize = 11.5.sp,
-                fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+            Box(
                 modifier = Modifier
+                    .shadow(if (on) 0.dp else 1.dp, t.keyShape)
+                    .clip(t.keyShape)
                     .background(if (on) t.keyAltBg else t.keyBg, t.keyShape)
-                    .border(
-                        BorderStroke(1.dp, if (on) t.brandMid else t.border),
-                        t.keyShape,
-                    )
                     .clickable { onSelectPreset(preset) }
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
-            )
+                    .padding(horizontal = 11.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = formatIdr(preset),
+                    color = if (on) t.brandLight else t.fg,
+                    fontSize = 12.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                )
+            }
         }
     }
 }
@@ -945,7 +917,7 @@ private fun SleekAmountNumpad(
     isPresetSelected: Boolean,
     t: KeyboardPanelTokens,
     onAmountChange: (newAmount: Long, fromPreset: Boolean) -> Unit,
-    keyHeightDp: Int = 30,
+    keyHeightDp: Int = 34,
     modifier: Modifier = Modifier,
 ) {
     val maxAmount = 999_999_999L
@@ -965,24 +937,23 @@ private fun SleekAmountNumpad(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 row.forEach { key ->
-                    val isAction = key == "⌫" || key == "000"
+                    val isBackspace = key == "⌫"
+                    val isAction = isBackspace || key == "000"
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(keyHeightDp.dp)
-                            .background(
-                                if (isAction) t.keyAltBg else t.keyBg,
-                                t.keyShape,
-                            )
-                            .border(BorderStroke(1.dp, t.border), t.keyShape)
+                            .shadow(1.5.dp, t.keyShape)
+                            .clip(t.keyShape)
+                            .background(if (isAction) t.keyAltBg else t.keyBg, t.keyShape)
                             .clickable {
                                 when (key) {
                                     "⌫" -> onAmountChange(amount / 10L, false)
@@ -992,12 +963,21 @@ private fun SleekAmountNumpad(
                             },
                         contentAlignment = Alignment.Center,
                     ) {
-                        Text(
-                            text = key,
-                            color = if (isAction) t.mutedFg else t.fg,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                        )
+                        if (isBackspace) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Backspace,
+                                contentDescription = "Hapus",
+                                tint = t.mutedFg,
+                                modifier = Modifier.size(16.dp),
+                            )
+                        } else {
+                            Text(
+                                text = key,
+                                color = if (isAction) t.mutedFg else t.fg,
+                                fontSize = if (isAction) 13.sp else 16.sp,
+                                fontWeight = FontWeight.Normal,
+                            )
+                        }
                     }
                 }
             }
@@ -1073,7 +1053,7 @@ private fun TransaksiCompactLayout(
                         isPresetSelected = fromPreset
                         onAmount(newAmount)
                     },
-                    keyHeightDp = 30,
+                    keyHeightDp = 32,
                 )
             }
 
@@ -1116,8 +1096,6 @@ private fun TransaksiWideFoldableLayout(
     onCreate: () -> Unit,
     screen: Screen,
     createdLink: PaymentLink?,
-    checkingStatus: Boolean,
-    onCheckStatus: () -> Unit,
     onCommit: () -> Unit,
     onAgain: () -> Unit,
 ) {
@@ -1209,8 +1187,6 @@ private fun TransaksiWideFoldableLayout(
                 LinkReady(
                     link = createdLink,
                     t = t,
-                    checkingStatus = checkingStatus,
-                    onCheckStatus = onCheckStatus,
                     onCommit = onCommit,
                     onAgain = onAgain,
                 )
@@ -1231,77 +1207,46 @@ private fun TransaksiWideFoldableLayout(
 }
 
 /* ----------------------------------------------------------------------- */
-/* Link Pembayaran Siap                                                    */
+/* Link Pembayaran Siap (Clean, no Check Status)                           */
 /* ----------------------------------------------------------------------- */
 
 @Composable
 private fun LinkReady(
     link: PaymentLink,
     t: KeyboardPanelTokens,
-    checkingStatus: Boolean,
-    onCheckStatus: () -> Unit,
     onCommit: () -> Unit,
     onAgain: () -> Unit,
 ) {
-    val statusLabel = when (link.status.lowercase()) {
-        "paid", "settled", "completed" -> "Lunas ✓"
-        "expired", "cancelled", "canceled" -> "Kedaluwarsa"
-        else -> "Menunggu pembayaran"
-    }
-
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(t.inputBg, t.keyShape)
-                .border(BorderStroke(1.dp, t.border), t.keyShape)
-                .padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp),
+                .clip(t.keyShape)
+                .background(t.containerBg, t.keyShape)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier
-                        .size(20.dp)
-                        .background(t.brandTint, CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("✓", color = t.brandLight, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                }
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = t.brandLight,
+                    modifier = Modifier.size(18.dp),
+                )
                 Spacer(Modifier.width(7.dp))
                 Text(
                     text = "Link pembayaran siap",
                     color = t.fg,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = if (checkingStatus) "Mengecek…" else "Cek status ↻",
-                    color = t.brandLight,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clickable(enabled = !checkingStatus) { onCheckStatus() },
                 )
             }
-
-            Text(
-                text = "Status: $statusLabel",
-                color = t.mutedFg,
-                fontSize = 11.sp,
-            )
-
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(1.dp)
-                    .background(t.border),
-            )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = link.payUrl.removePrefix("https://"),
                     color = t.fg,
-                    fontSize = 12.sp,
+                    fontSize = 12.5.sp,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1310,8 +1255,8 @@ private fun LinkReady(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = formatIdr(link.amount),
-                    color = t.fg,
-                    fontSize = 12.sp,
+                    color = t.brandLight,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -1324,7 +1269,7 @@ private fun LinkReady(
                 Text(
                     text = metaParts.joinToString("  ·  "),
                     color = t.mutedFg,
-                    fontSize = 10.5.sp,
+                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1347,6 +1292,14 @@ private fun LinkReady(
                 t = t,
                 onClick = onCommit,
                 modifier = Modifier.weight(1.4f),
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Send,
+                        contentDescription = null,
+                        tint = t.onBrand,
+                        modifier = Modifier.size(15.dp),
+                    )
+                },
             )
         }
     }
@@ -1376,22 +1329,26 @@ private fun ProdukTab(
     onClearSearch: () -> Unit,
     onSend: (Product) -> Unit,
 ) {
-    val maxListHeight = if (isKeyboardOpen) 96.dp else 185.dp
+    val maxListHeight = if (isKeyboardOpen) 105.dp else 190.dp
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(36.dp)
-                .background(t.inputBg, t.keyShape)
-                .border(
-                    BorderStroke(1.dp, if (isKeyboardOpen) t.brandMid else t.border),
-                    t.keyShape,
-                )
+                .height(38.dp)
+                .clip(t.keyShape)
+                .background(if (isKeyboardOpen) t.keyBg else t.containerBg, t.keyShape)
                 .clickable { onToggleSearch() }
                 .padding(horizontal = 10.dp),
         ) {
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = t.mutedFg,
+                modifier = Modifier.size(16.dp),
+            )
+            Spacer(Modifier.width(7.dp))
             Text(
                 text = when {
                     isKeyboardOpen && search.isEmpty() -> "|"
@@ -1406,26 +1363,27 @@ private fun ProdukTab(
                 modifier = Modifier.weight(1f),
             )
             if (search.isNotEmpty()) {
-                Text(
-                    text = "✕",
-                    color = t.mutedFg,
-                    fontSize = 11.5.sp,
+                Icon(
+                    imageVector = Icons.Default.Clear,
+                    contentDescription = "Hapus",
+                    tint = t.mutedFg,
                     modifier = Modifier
-                        .clickable { onClearSearch() }
-                        .padding(horizontal = 4.dp),
+                        .size(16.dp)
+                        .clickable { onClearSearch() },
                 )
             }
             if (isKeyboardOpen) {
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(6.dp))
                 Text(
-                    text = "OK",
+                    text = "Selesai",
                     color = t.onBrand,
-                    fontSize = 10.5.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier
+                        .clip(t.keyShape)
                         .background(t.brandDeep, t.keyShape)
                         .clickable { onToggleSearch() }
-                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
                 )
             }
         }
@@ -1491,17 +1449,17 @@ private fun ProductRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .shadow(1.5.dp, t.keyShape)
+            .clip(t.keyShape)
             .background(t.keyBg, t.keyShape)
-            .border(BorderStroke(1.dp, t.border), t.keyShape)
             .clickable { onSend() }
-            .padding(horizontal = 9.dp, vertical = 6.dp),
+            .padding(horizontal = 9.dp, vertical = 7.dp),
     ) {
         Box(
             modifier = Modifier
                 .size(34.dp)
                 .clip(t.keyShape)
-                .background(t.keyAltBg)
-                .border(BorderStroke(1.dp, t.border), t.keyShape),
+                .background(t.keyAltBg),
             contentAlignment = Alignment.Center,
         ) {
             val bmp = thumbnail
@@ -1540,22 +1498,25 @@ private fun ProductRow(
             )
         }
         Spacer(Modifier.width(8.dp))
-        Text(
-            text = "Kirim",
-            color = t.fg,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
+        Box(
             modifier = Modifier
+                .clip(t.keyShape)
                 .background(t.keyAltBg, t.keyShape)
-                .border(BorderStroke(1.dp, t.border), t.keyShape)
                 .clickable { onSend() }
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-        )
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+        ) {
+            Text(
+                text = "Kirim",
+                color = t.fg,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 
 /* ----------------------------------------------------------------------- */
-/* Unpaired / Revoked Prompt & Shared Keyboard-Matched Components          */
+/* Unpaired / Revoked Prompt & FlorisBoard-Matched Controls                */
 /* ----------------------------------------------------------------------- */
 
 @Composable
@@ -1567,10 +1528,10 @@ private fun UnpairedPrompt(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(t.inputBg, t.keyShape)
-            .border(BorderStroke(1.dp, t.border), t.keyShape)
+            .clip(t.keyShape)
+            .background(t.containerBg, t.keyShape)
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = if (isRevoked) "Perangkat tidak lagi terhubung" else "Hubungkan dengan akun Merchant Aulaa",
@@ -1585,7 +1546,7 @@ private fun UnpairedPrompt(
                 "Buka Dashboard Web Aulaa → Account Settings → Keyboard devices, lalu scan QR atau klaim kode pairing 8 karakter."
             },
             color = t.mutedFg,
-            fontSize = 11.5.sp,
+            fontSize = 12.sp,
             lineHeight = 16.sp,
         )
         if (onOpenPairing != null) {
@@ -1609,42 +1570,29 @@ private fun ErrorBanner(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
+            .clip(t.keyShape)
             .background(t.keyAltBg, t.keyShape)
-            .border(BorderStroke(1.dp, Color(0x66EF4444)), t.keyShape)
             .clickable { onDismiss() }
-            .padding(horizontal = 9.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
         Text(
             text = message,
-            color = t.fg,
-            fontSize = 11.sp,
+            color = Color(0xFFEF4444),
+            fontSize = 11.5.sp,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(6.dp))
-        Text("✕", color = t.mutedFg, fontSize = 11.sp)
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "Tutup",
+            tint = t.mutedFg,
+            modifier = Modifier.size(15.dp),
+        )
     }
 }
 
 @Composable
-private fun IconSquare(
-    glyph: String,
-    t: KeyboardPanelTokens,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .size(28.dp)
-            .background(t.keyBg, t.keyShape)
-            .border(BorderStroke(1.dp, t.border), t.keyShape)
-            .clickable { onClick() },
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(glyph, color = t.mutedFg, fontSize = 12.5.sp)
-    }
-}
-
-@Composable
-private fun SleekTabs(
+private fun KeyboardTabs(
     tab: Tab,
     t: KeyboardPanelTokens,
     onSelect: (Tab) -> Unit,
@@ -1652,8 +1600,8 @@ private fun SleekTabs(
 ) {
     Row(
         modifier = modifier
-            .background(t.inputBg, t.keyShape)
-            .border(BorderStroke(1.dp, t.border), t.keyShape)
+            .clip(t.keyShape)
+            .background(t.containerBg, t.keyShape)
             .padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -1662,16 +1610,18 @@ private fun SleekTabs(
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .then(if (on) Modifier.shadow(1.5.dp, t.keyShape) else Modifier)
+                    .clip(t.keyShape)
                     .background(if (on) t.keyBg else Color.Transparent, t.keyShape)
                     .clickable { onSelect(entry) }
-                    .padding(vertical = 5.dp),
+                    .padding(vertical = 6.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = entry.label,
                     color = if (on) t.fg else t.mutedFg,
-                    fontSize = 12.sp,
-                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
+                    fontSize = 12.5.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
                 )
             }
@@ -1686,27 +1636,28 @@ private fun PrimaryButton(
     t: KeyboardPanelTokens,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    leadingIcon: (@Composable () -> Unit)? = null,
 ) {
-    Box(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .height(38.dp)
-            .background(
-                brush = if (enabled) {
-                    Brush.linearGradient(listOf(t.brandMid, t.brandDeep))
-                } else {
-                    SolidColor(t.keyAltBg)
-                },
-                shape = t.keyShape,
-            )
+            .height(40.dp)
+            .shadow(if (enabled) 2.dp else 0.dp, t.keyShape)
+            .clip(t.keyShape)
+            .background(if (enabled) t.brandDeep else t.keyAltBg, t.keyShape)
             .clickable(enabled = enabled) { onClick() },
-        contentAlignment = Alignment.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
     ) {
+        if (leadingIcon != null) {
+            leadingIcon()
+            Spacer(Modifier.width(6.dp))
+        }
         Text(
             text = text,
             color = if (enabled) t.onBrand else t.mutedFg,
             fontSize = 13.sp,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Medium,
         )
     }
 }
@@ -1721,16 +1672,17 @@ private fun OutlineButton(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(38.dp)
+            .height(40.dp)
+            .shadow(1.5.dp, t.keyShape)
+            .clip(t.keyShape)
             .background(t.keyBg, t.keyShape)
-            .border(BorderStroke(1.dp, t.border), t.keyShape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
             color = t.fg,
-            fontSize = 12.5.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
         )
     }

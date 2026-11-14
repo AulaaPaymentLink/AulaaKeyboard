@@ -264,10 +264,10 @@ private fun AulaaInputLayout() {
             pairingStore = pairingStore,
             onCommitText = { link ->
                 imeController.updateStateBlocking {
-                    emitText(link.asK3String())
                     state = state.copy(
                         flags = state.flags.withImeUiMode(ImeUiMode.TEXT),
                     )
+                    emitText(link.asK3String())
                 }
             },
             onClose = {
