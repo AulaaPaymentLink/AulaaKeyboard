@@ -37,21 +37,24 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
             ./gradlew clean bundleRelease assembleRelease
+            ls -la app/build/outputs/apk/release/ app/build/outputs/bundle/release/ || true
           else
-            echo "KEYSTORE_BASE64 secret is not set, skipping release signing."
+            echo "KEYSTORE_BASE64 secret is not set, building unsigned release APK."
+            ./gradlew clean assembleRelease
+            ls -la app/build/outputs/apk/release/ || true
           fi
       - name: Remove temporary keystore
         if: always()
         run: rm -f release-upload.jks
       - name: Upload Play Store Release Bundle (AAB)
-        if: github.event_name != 'pull_request' && hashFiles('app/build/outputs/bundle/release/app-release.aab') != ''
+        if: github.event_name != 'pull_request' && hashFiles('app/build/outputs/bundle/release/*.aab') != ''
         uses: actions/upload-artifact@v4
         with:
           name: app-release.aab
-          path: app/build/outputs/bundle/release/app-release.aab
-      - name: Upload Signed Release APK
-        if: github.event_name != 'pull_request' && hashFiles('app/build/outputs/apk/release/app-release.apk') != ''
+          path: app/build/outputs/bundle/release/*.aab
+      - name: Upload Release APK
+        if: github.event_name != 'pull_request' && hashFiles('app/build/outputs/apk/release/*.apk') != ''
         uses: actions/upload-artifact@v4
         with:
           name: app-release.apk
-          path: app/build/outputs/apk/release/app-release.apk
+          path: app/build/outputs/apk/release/*.apk
