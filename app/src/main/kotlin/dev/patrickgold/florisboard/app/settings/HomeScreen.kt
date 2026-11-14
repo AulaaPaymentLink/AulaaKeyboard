@@ -18,7 +18,6 @@ package dev.patrickgold.florisboard.app.settings
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Info
@@ -27,7 +26,9 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.vectorResource
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
@@ -73,12 +74,12 @@ fun HomeScreen() {
             SegmentedListColumn {
                 Preference(
                     shapes = ListItemDefaults.segmentedShapes(0, 1),
-                    icon = Icons.Default.Link,
+                    icon = ImageVector.vectorResource(R.drawable.ic_aulaa_panel),
                     title = "Aulaa Payment Link",
                     summary = if (pairingSession != null) {
                         "Terhubung ke ${pairingSession!!.merchant.name} (${pairingSession!!.device.name})"
                     } else {
-                        "Belum terhubung — Ketuk untuk pairing dengan Dashboard Aulaa"
+                        "Buat link pembayaran langsung dari keyboard HP"
                     },
                     onClick = { navController.navigate(Routes.Settings.Aulaa()) },
                 )

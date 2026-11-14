@@ -738,13 +738,7 @@ private fun Label(text: String) {
 
 @Composable
 private fun BrandMark(size: Dp) {
-    val p = AulaaTheme.palette
-    Box(
-        Modifier
-            .size(size)
-            .background(Brush.linearGradient(listOf(p.brandLight, p.brandDeep)), RoundedCornerShape(8.dp)),
-        contentAlignment = Alignment.Center,
-    ) { Text("a", color = p.onBrand, fontSize = (size.value * 0.6).sp, fontWeight = FontWeight.Medium) }
+    co.aulaa.keyboard.payment.theme.AulaaBrandMark(size = size, showContainer = false)
 }
 
 @Composable

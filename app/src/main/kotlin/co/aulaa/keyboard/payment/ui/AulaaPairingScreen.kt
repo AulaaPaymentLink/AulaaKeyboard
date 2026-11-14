@@ -41,9 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -52,10 +50,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.aulaa.keyboard.payment.data.AulaaApi
-import co.aulaa.keyboard.payment.data.AulaaAttestation
-import co.aulaa.keyboard.payment.data.DEFAULT_API_BASE_URL
 import co.aulaa.keyboard.payment.data.PairingSession
 import co.aulaa.keyboard.payment.data.PairingStore
+import co.aulaa.keyboard.payment.theme.AulaaBrandMark
 import co.aulaa.keyboard.payment.theme.AulaaTheme
 import kotlinx.coroutines.launch
 
@@ -74,12 +71,9 @@ fun AulaaPairingContent(
     modifier: Modifier = Modifier,
 ) {
     val p = AulaaTheme.palette
-    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     val session by pairingStore.sessionFlow.collectAsState()
-    val apiBaseUrl by pairingStore.apiBaseUrlFlow.collectAsState()
-    val apkCertSha256 = remember(context) { AulaaAttestation.getApkSigningCertSha256Hex(context) }
 
     var codeInput by remember(initialPairingCode) {
         mutableStateOf(extractCodeFromInput(initialPairingCode.orEmpty()))
@@ -87,10 +81,6 @@ fun AulaaPairingContent(
     var deviceNameInput by remember {
         mutableStateOf(defaultDeviceName())
     }
-    var serverUrlInput by remember(apiBaseUrl) {
-        mutableStateOf(apiBaseUrl)
-    }
-    var showServerConfig by remember { mutableStateOf(false) }
 
     var claiming by remember { mutableStateOf(false) }
     var syncingProjects by remember { mutableStateOf(false) }
@@ -110,7 +100,6 @@ fun AulaaPairingContent(
             statusMessage = "Nama perangkat wajib diisi (maks 100 karakter)."
             return
         }
-        pairingStore.setApiBaseUrl(serverUrlInput)
         claiming = true
         statusMessage = null
         isError = false
@@ -145,7 +134,7 @@ fun AulaaPairingContent(
             .padding(vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // Header banner
+        // Header banner (matching apps/tenant-dashboard/src/components/settings-keyboard-section.tsx)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
@@ -154,21 +143,11 @@ fun AulaaPairingContent(
                 .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radiusLg))
                 .padding(14.dp),
         ) {
-            Box(
-                Modifier
-                    .size(38.dp)
-                    .background(
-                        Brush.linearGradient(listOf(p.brandLight, p.brandDeep)),
-                        RoundedCornerShape(10.dp),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("a", color = p.onBrand, fontSize = 21.sp, fontWeight = FontWeight.Medium)
-            }
+            AulaaBrandMark(size = 38.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Integrasi Pembayaran Aulaa",
+                    "Aulaa Keyboard",
                     color = p.foreground,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
@@ -177,7 +156,7 @@ fun AulaaPairingContent(
                     if (session != null) {
                         "Terhubung ke ${session!!.merchant.name}"
                     } else {
-                        "Belum terhubung · Pair dari Dashboard Web"
+                        "Buat link pembayaran langsung dari keyboard HP"
                     },
                     color = if (session != null) p.brandDeep else p.mutedForeground,
                     fontSize = 12.5.sp,
@@ -306,74 +285,12 @@ fun AulaaPairingContent(
                 )
             }
 
-            // Collapsible server URL & APK cert SHA-256 diagnostics
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.clickable { showServerConfig = !showServerConfig },
-            ) {
-                Text(
-                    text = if (showServerConfig) "Server API & Info Sertifikat APK ▴" else "Server API & Info Sertifikat APK ▾",
-                    color = p.brandDeep,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    text = "(${serverUrlInput.removePrefix("https://")})",
-                    color = p.mutedForeground,
-                    fontSize = 11.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            if (showServerConfig) {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    FieldLabel("API BASE URL")
-                    PairingTextField(
-                        value = serverUrlInput,
-                        onValueChange = { serverUrlInput = it },
-                        placeholder = DEFAULT_API_BASE_URL,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Simpan URL",
-                            color = p.brandDeep,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier
-                                .border(BorderStroke(1.dp, p.brandMid), RoundedCornerShape(7.dp))
-                                .background(p.brandTint, RoundedCornerShape(7.dp))
-                                .clickable {
-                                    pairingStore.setApiBaseUrl(serverUrlInput)
-                                    isError = false
-                                    statusMessage = "API Base URL disimpan: ${pairingStore.apiBaseUrl()}"
-                                }
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
-                        )
-                        Text(
-                            text = "Reset Default",
-                            color = p.mutedForeground,
-                            fontSize = 12.sp,
-                            modifier = Modifier
-                                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp))
-                                .clickable {
-                                    serverUrlInput = DEFAULT_API_BASE_URL
-                                    pairingStore.setApiBaseUrl(DEFAULT_API_BASE_URL)
-                                }
-                                .padding(horizontal = 10.dp, vertical = 5.dp),
-                        )
-                    }
-
-                    Spacer(Modifier.height(4.dp))
-                    FieldLabel("APK SIGNING CERT SHA-256 (UNTUK ENV BACKEND)")
-                    Text(
-                        text = apkCertSha256 ?: "Tidak tersedia",
-                        color = p.mutedForeground,
-                        fontSize = 11.sp,
-                    )
-                }
-            }
+            Text(
+                text = "Perangkat keyboard hanya bisa membuat link pembayaran serta melihat project, produk, dan status transaksinya — tidak bisa menarik dana atau mengubah pengaturan.",
+                color = p.mutedForeground,
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp,
+            )
         }
     }
 }

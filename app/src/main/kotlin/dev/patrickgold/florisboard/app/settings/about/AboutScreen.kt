@@ -17,14 +17,11 @@
 package dev.patrickgold.florisboard.app.settings.about
 
 import android.widget.Toast
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.outlined.Description
@@ -34,8 +31,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
@@ -51,6 +46,7 @@ import dev.patrickgold.florisboard.app.components.SegmentedListColumn
 import dev.patrickgold.florisboard.clipboardManager
 import dev.patrickgold.jetpref.datastore.ui.Preference
 import org.florisboard.lib.android.stringRes
+import org.florisboard.lib.compose.FlorisCanvasIcon
 import org.florisboard.lib.compose.stringRes
 
 @Composable
@@ -74,24 +70,11 @@ fun AboutScreen() {
                     .fillMaxWidth()
                     .padding(top = 24.dp, bottom = 32.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .requiredSize(64.dp)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(Color(0xFF47C5AD), Color(0xFF0A8577)),
-                            ),
-                            RoundedCornerShape(18.dp),
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "a",
-                        color = Color.White,
-                        fontSize = 36.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
+                FlorisCanvasIcon(
+                    modifier = Modifier.requiredSize(64.dp),
+                    iconId = R.mipmap.floris_app_icon,
+                    contentDescription = "Aulaa Keyboard app icon",
+                )
                 Text(
                     text = stringRes(R.string.floris_app_name),
                     fontSize = 24.sp,
