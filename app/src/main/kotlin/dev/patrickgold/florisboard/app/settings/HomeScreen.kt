@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.filled.Gesture
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
 import androidx.compose.material.icons.filled.SmartButton
 import androidx.compose.material.icons.filled.Spellcheck
@@ -29,6 +30,7 @@ import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import dev.patrickgold.florisboard.R
@@ -37,6 +39,7 @@ import dev.patrickgold.florisboard.app.Routes
 import dev.patrickgold.florisboard.app.components.ScrollableScreenColumn
 import dev.patrickgold.florisboard.app.components.SegmentedListColumn
 import dev.patrickgold.florisboard.app.components.FlorisScreenNg
+import dev.patrickgold.florisboard.aulaaPairingStore
 import dev.patrickgold.florisboard.lib.util.InputMethodUtils
 import dev.patrickgold.jetpref.datastore.ui.Preference
 import org.florisboard.lib.compose.FlorisErrorCard
@@ -49,6 +52,8 @@ fun HomeScreen() {
     val context = LocalContext.current
     val isFlorisBoardEnabled by InputMethodUtils.observeIsFlorisboardEnabled()
     val isFlorisBoardSelected by InputMethodUtils.observeIsFlorisboardSelected()
+    val pairingStore by context.aulaaPairingStore()
+    val pairingSession by pairingStore.sessionFlow.collectAsState()
 
     FlorisScreenNg(
         title = stringRes(R.string.settings__home__title),
@@ -67,6 +72,20 @@ fun HomeScreen() {
                     showIcon = false,
                     text = stringRes(R.string.settings__home__ime_not_selected),
                     onClick = { InputMethodUtils.showImePicker(context) },
+                )
+            }
+
+            SegmentedListColumn {
+                Preference(
+                    shapes = ListItemDefaults.segmentedShapes(0, 1),
+                    icon = Icons.Default.Link,
+                    title = "Aulaa Payment Link",
+                    summary = if (pairingSession != null) {
+                        "Terhubung ke ${pairingSession!!.merchant.name} (${pairingSession!!.device.name})"
+                    } else {
+                        "Belum terhubung — Ketuk untuk pairing dengan Dashboard Aulaa"
+                    },
+                    onClick = { navController.navigate(Routes.Settings.Aulaa()) },
                 )
             }
 

@@ -48,6 +48,7 @@ import dev.patrickgold.florisboard.app.ext.ExtensionImportScreen
 import dev.patrickgold.florisboard.app.ext.ExtensionImportScreenType
 import dev.patrickgold.florisboard.app.settings.HomeScreen
 import dev.patrickgold.florisboard.app.settings.about.AboutScreen
+import dev.patrickgold.florisboard.app.settings.aulaa.AulaaScreen
 import dev.patrickgold.florisboard.app.settings.about.ProjectLicenseScreen
 import dev.patrickgold.florisboard.app.settings.about.ThirdPartyLicensesScreen
 import dev.patrickgold.florisboard.app.settings.advanced.BackupScreen
@@ -107,6 +108,10 @@ object Routes {
         @Serializable
         @Deeplink("settings/home")
         object Home
+
+        @Serializable
+        @Deeplink("settings/aulaa")
+        data class Aulaa(val code: String? = null)
 
         @Serializable
         @Deeplink("settings/localization")
@@ -282,6 +287,11 @@ object Routes {
             }
 
             composableWithDeepLink(Settings.Home::class) { HomeScreen() }
+
+            composableWithDeepLink(Settings.Aulaa::class) { navBackStack ->
+                val payload = navBackStack.toRoute<Settings.Aulaa>()
+                AulaaScreen(payload.code)
+            }
 
             composableWithDeepLink(Settings.Localization::class) { LocalizationScreen() }
             composableWithDeepLink(Settings.SelectLocale::class) { SelectLocaleScreen() }

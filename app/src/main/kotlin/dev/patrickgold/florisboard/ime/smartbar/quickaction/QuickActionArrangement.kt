@@ -88,9 +88,12 @@ data class QuickActionArrangement(
     }
 
     companion object {
+        private val AulaaQuickAction = QuickAction.InsertK3Descriptor(ImeActions.ShowAulaaPanel)
+
         val Default = QuickActionArrangement(
-            stickyAction = QuickAction.InsertK3Descriptor(ImeActions.ExternalVoiceInput),
+            stickyAction = AulaaQuickAction,
             dynamicActions = listOf(
+                QuickAction.InsertK3Descriptor(ImeActions.ExternalVoiceInput),
                 QuickAction.InsertK3Descriptor(ImeActions.ToggleFloatingWindow),
                 QuickAction.InsertK3Descriptor(ImeActions.ToggleResizeMode),
                 QuickAction.InsertK3Descriptor(ImeActions.Undo),
@@ -124,7 +127,12 @@ data class QuickActionArrangement(
         }
 
         override fun deserialize(value: String): QuickActionArrangement {
-            return QuickActionJsonConfig.decodeFromString(value)
+            val parsed = QuickActionJsonConfig.decodeFromString<QuickActionArrangement>(value)
+            return if (AulaaQuickAction in parsed) {
+                parsed
+            } else {
+                parsed.copy(dynamicActions = listOf(AulaaQuickAction) + parsed.dynamicActions)
+            }
         }
     }
 }

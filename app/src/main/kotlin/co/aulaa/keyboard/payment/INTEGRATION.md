@@ -1,74 +1,36 @@
-# Aulaa payment panel — integration seams
+# Aulaa payment panel — integration architecture & API contract
 
-This package (`co.aulaa.keyboard.payment`) is **self-contained**: it does not import
-any FlorisBoard internals. To wire it into the keyboard, connect these four seams.
-File paths are relative to the repo root.
+This package (`co.aulaa.keyboard.payment`) contains the Aulaa payment feature and connects to the FlorisBoard base through four seams:
 
-## 1. Show the panel from the Smartbar
+## 1. Show the panel from the Smartbar (`ImeUiMode.AULAA`)
 
-FlorisBoard renders panels (emoji/media) in the region below the text row. Add an
-Aulaa quick action that swaps that region for `PaymentPanel`.
-
-- Quick actions live under `app/src/main/kotlin/dev/patrickgold/florisboard/ime/smartbar/quickaction/`.
-- The media/panel surface is `app/src/main/kotlin/dev/patrickgold/florisboard/ime/media/`.
-- Add an action whose `onClick` sets keyboard UI state to an `Aulaa` panel mode,
-  and in the panel host render:
-
-```kotlin
-AulaaTheme(darkTheme = /* follow the active Floris theme or the system */) {
-    PaymentPanel(
-        api = aulaaApi,                 // see seam 3
-        onCommitText = { editor.commitText(it) },  // see seam 2
-        onClose = { /* restore the normal keyboard layout */ },
-    )
-}
-```
+- `ImeUiMode.AULAA(3)` is registered in `dev.patrickgold.florisboard.ime.ImeUiMode`.
+- `ImeActions.ShowAulaaPanel` (`@fl:action/show_aulaa_panel`) and `ImeIcons.AulaaPanel` (`@fl:icon/aulaa_panel`) are wired in `ImeActions.kt`, `ImeIcons.kt`, `Icon3.kt`, `displays-implied.xml`, and `QuickAction.kt`.
+- `QuickActionArrangement.Default` sets `ShowAulaaPanel` as the default `stickyAction` on the Smartbar, and `QuickActionArrangement.Serializer` ensures existing arrangements include `ShowAulaaPanel`.
+- `ImeWindow.kt` renders `AulaaInputLayout()` when `activeImeUiMode == ImeUiMode.AULAA`, matching the active Floris theme's day/night mode (`activeTheme.config.isNightTheme`).
 
 ## 2. Commit the link into the active editor (`onCommitText`)
 
-The link is pasted into whatever field the user is typing in (WhatsApp, etc.).
+- In `ImeWindow.kt`, `AulaaInputLayout` implements `onCommitText` by calling `imeController.updateStateBlocking { emitText(link.asK3String()); state = state.copy(flags = state.flags.withImeUiMode(ImeUiMode.TEXT)) }`, inserting the link directly into the active text field (WhatsApp, Instagram, Telegram, etc.) and returning to the keyboard layout.
+- Inside `PaymentPanel.kt`, an inline compact numeric keypad (`InlineAmountNumpad`) allows entering custom nominals directly inside the IME window without requiring a second soft keyboard.
 
-- Editor logic: `app/src/main/kotlin/dev/patrickgold/florisboard/ime/keyboard3/ImeEditor.kt`
-  and the service `app/src/main/kotlin/dev/patrickgold/florisboard/FlorisImeService.kt`.
-- Implement `onCommitText` by calling the editor's existing commit path (ultimately
-  `InputConnection.commitText(text, 1)`). Prefer the Floris `ImeEditor` wrapper over
-  touching `currentInputConnection` directly, so autospace/undo behave consistently.
+## 3. Production HTTP API client (`HttpAulaaApi`)
 
-## 3. Provide a real `AulaaApi` (seam to the backend)
+`HttpAulaaApi` implements `AulaaApi` over `HttpURLConnection` + `kotlinx.serialization.json` against the final backend contract:
 
-Replace `StubAulaaApi` with an OkHttp implementation of `AulaaApi` that calls the
-existing merchant endpoints with the scoped device token as a Bearer header:
+| `AulaaApi` method | HTTP endpoint | Scope / Auth |
+|-------------------|---------------|--------------|
+| `claimPairing(code, deviceName)` | `POST /v1/keyboard/pairing/claim` `{code, device_name}` | Public (returns `aulakb_<64_hex>` + merchant/device/projects/`pay_base_url`) |
+| `createTransactionLink(projectId, amount, orderId)` | `POST /v1/transactions` `{project_id, amount, order_id?}` | `Bearer <device_token>` (`transactions:create`) |
+| `transactionStatus(id)` | `GET /v1/transactions/{id}` | `Bearer <device_token>` (`transactions:read`) |
+| `listProjects()` | `GET /v1/projects` | `Bearer <device_token>` (`projects:read`) |
+| `listProducts(projectId, query)` | `GET /v1/products?project_id=...` | `Bearer <device_token>` (`products:read`) |
 
-| AulaaApi call            | HTTP                                            |
-|--------------------------|-------------------------------------------------|
-| `createTransactionLink`  | `POST /v1/transactions` `{project_id, amount, order_id?}` |
-| `listProjects`           | `GET /v1/projects`                              |
-| `listProducts`           | `GET /v1/products`                              |
-| `transactionStatus`      | `GET /v1/transactions/{id}`                      |
+- Shareable links use `pay_base_url` from the pairing claim response (default `https://payment.aulaa.co`):
+  - Transaction invoice link: `{pay_base_url}/pay/{invoice.id}`
+  - Product checkout link: `{pay_base_url}/buy/{product.id}`
 
-- Link shapes: `https://payment.aulaa.co/pay/{invoiceId}` and `…/buy/{productId}`.
-- The token comes from `PairingStore` (seam 4). Send it as `Authorization: Bearer <token>`.
-- The token is scoped server-side to exactly these four capabilities — see the
-  backend "device pairing & scoped token" work in the main repo.
+## 4. Pairing + Android Keystore token storage (`AndroidKeystorePairingStore` & `AulaaScreen`)
 
-## 4. Pairing + token storage (`PairingStore`)
-
-The IME must never collect the merchant password. Instead:
-
-1. Add a **companion-app Activity** (a normal settings screen, not the IME surface)
-   that scans a QR / enters a pairing code shown in the Aulaa web dashboard
-   (**Account Settings → Keyboard devices**), then calls
-   `POST /v1/keyboard/pairing/claim {code, device_name}` and stores the returned
-   `device_token`.
-2. Implement `PairingStore` with **EncryptedSharedPreferences**. The Activity and
-   the `FlorisImeService` share the same app package/process sandbox
-   (`co.aulaa.keyboard`), so both read/write the same store — no secret is baked
-   into the APK (important: this app is open-source).
-3. If `PairingStore.isPaired()` is false, the panel should show a short "pair this
-   keyboard in the Aulaa app" prompt instead of the form.
-
-## Notes / TODO
-- `BackupDefaults.PACKAGE_NAME_PREFIX` still reads `dev.patrickgold.florisboard`;
-  revisit if keyboard backups must carry the Aulaa package prefix.
-- Localized `app_name` strings (`values-*/strings.xml`) still say "FlorisBoard";
-  only the default `values/strings.xml` was rebranded. Update per-locale as needed.
+- `AndroidKeystorePairingStore` encrypts the `PairingSession` (including `device_token`) with a hardware-backed AES-256-GCM key (`co.aulaa.keyboard.pairing_aes_key`) in `AndroidKeyStore`.
+- `AulaaScreen` (`Routes.Settings.Aulaa`, accessible from the top of `HomeScreen` or via the "Hubungkan Perangkat" button in the keyboard panel) lets merchants claim an 8-character pairing code (`ABCD-EFGH`) or scan the dashboard QR deep link (`aulaa-keyboard://pair?code=ABCDEFGH`).

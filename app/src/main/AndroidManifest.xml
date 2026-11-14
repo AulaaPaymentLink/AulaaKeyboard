@@ -5,6 +5,9 @@
     <!-- Permission needed to vibrate if the user has key press vibration enabled -->
     <uses-permission android:name="android.permission.VIBRATE"/>
 
+    <!-- Permission needed to call the Aulaa merchant API over HTTPS -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- Permission needed to create notifications on devices running Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
@@ -77,6 +80,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="ui" android:host="florisboard" android:pathPrefix="/" />
+            </intent-filter>
+            <intent-filter android:label="Pair Aulaa Keyboard">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="aulaa-keyboard" android:host="pair" />
             </intent-filter>
             <intent-filter android:label="Import Extension">
                 <action android:name="android.intent.action.VIEW"/>

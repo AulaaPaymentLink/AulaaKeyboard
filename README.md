@@ -202,11 +202,11 @@ it from the input switcher.
 |------|-------|
 | Fork + rebrand (applicationId, app name, project name) | ✅ done |
 | Aulaa Compose theme from dashboard tokens (light/dark) | ✅ done |
-| Payment panel UI (Compose, self-contained, stub API) | ✅ done |
-| IME wiring — Smartbar action + editor commit | ⏳ TODO ([INTEGRATION.md](app/src/main/kotlin/co/aulaa/keyboard/payment/INTEGRATION.md)) |
-| Real API (OkHttp) + pairing + EncryptedSharedPreferences | ⏳ TODO — needs backend pairing endpoints |
-| Companion-app pairing screen (scan QR / enter code) | ⏳ TODO |
-| Backend: pairing + scoped device token | ↗ separate work in the main Aulaa repo |
+| Payment panel UI (Compose, inline numpad, live invoice status check) | ✅ done |
+| IME wiring — Smartbar sticky action + `ImeUiMode.AULAA` + editor commit | ✅ done ([INTEGRATION.md](app/src/main/kotlin/co/aulaa/keyboard/payment/INTEGRATION.md)) |
+| Real API (`HttpAulaaApi`) + Android Keystore encrypted `PairingStore` | ✅ done |
+| Companion-app pairing screen (`Routes.Settings.Aulaa` + `aulaa-keyboard://pair` QR deep link) | ✅ done |
+| Backend: pairing + scoped device token (`aulakb_...`) | ✅ contract integrated |
 
 ## Relationship to FlorisBoard
 

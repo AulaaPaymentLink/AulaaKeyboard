@@ -389,6 +389,16 @@ class ImeController(
                         flags = state.flags.withImeUiMode(ImeUiMode.CLIPBOARD),
                     )
                 }
+                ImeActions.ShowAulaaPanel -> {
+                    val targetMode = if (state.flags.imeUiMode == ImeUiMode.AULAA) {
+                        ImeUiMode.TEXT
+                    } else {
+                        ImeUiMode.AULAA
+                    }
+                    state = state.copy(
+                        flags = state.flags.withImeUiMode(targetMode),
+                    )
+                }
                 ImeActions.Undo -> state.editor.performUndo()
                 ImeActions.Redo -> state.editor.performRedo()
                 ImeActions.Settings -> FlorisImeService.launchSettings()

@@ -221,7 +221,19 @@ class FlorisAppActivity : ComponentActivity() {
         LaunchedEffect(intentToBeHandled) {
             val intent = intentToBeHandled
             if (intent != null) {
-                if (intent.action == Intent.ACTION_VIEW && intent.categories?.contains(Intent.CATEGORY_BROWSABLE) == true) {
+                val dataUri = intent.data
+                if (intent.action == Intent.ACTION_VIEW && dataUri?.scheme.equals("aulaa-keyboard", ignoreCase = true)) {
+                    val code = dataUri?.getQueryParameter("code")
+                    val apiBase = dataUri?.getQueryParameter("api_base_url")
+                        ?: dataUri?.getQueryParameter("base_url")
+                    if (!apiBase.isNullOrBlank()) {
+                        appContext.aulaaPairingStore.value.setApiBaseUrl(apiBase)
+                    }
+                    navController.navigate(Routes.Settings.Aulaa(code = code))
+                } else if (intent.action == Intent.ACTION_VIEW && dataUri?.toString()?.startsWith("ui://florisboard/settings/aulaa") == true) {
+                    val code = dataUri.getQueryParameter("code")
+                    navController.navigate(Routes.Settings.Aulaa(code = code))
+                } else if (intent.action == Intent.ACTION_VIEW && intent.categories?.contains(Intent.CATEGORY_BROWSABLE) == true) {
                     navController.handleDeepLink(intent)
                 } else {
                     val uri = if (intent.action == Intent.ACTION_VIEW) {

@@ -50,13 +50,19 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.roundToIntRect
+import co.aulaa.keyboard.payment.theme.AulaaTheme
+import co.aulaa.keyboard.payment.ui.PaymentPanel
+import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.devtools.DevtoolsOverlay
+import dev.patrickgold.florisboard.aulaaApi
+import dev.patrickgold.florisboard.aulaaPairingStore
 import dev.patrickgold.florisboard.ime.ImeUiMode
 import dev.patrickgold.florisboard.ime.clipboard.ClipboardInputLayout
 import dev.patrickgold.florisboard.ime.keyboard.ProvideKeyboardRowBaseHeight
@@ -68,6 +74,7 @@ import dev.patrickgold.florisboard.ime.sheet.BottomSheetWindow
 import dev.patrickgold.florisboard.ime.text.TextInputLayout
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
 import dev.patrickgold.florisboard.ime.theme.ImeUiAttrs
+import dev.patrickgold.florisboard.ime.theme.LocalThemeController
 import kotlinx.coroutines.delay
 import org.florisboard.lib.compose.ProvideActualLayoutDirection
 import org.florisboard.lib.compose.conditional
@@ -79,6 +86,7 @@ import org.florisboard.lib.snygg.ui.SnyggBox
 import org.florisboard.lib.snygg.ui.SnyggIcon
 import org.florisboard.lib.snygg.ui.SnyggIconButton
 import org.florisboard.lib.snygg.ui.rememberSnyggThemeQuery
+import org.k3lp.lib.text.asK3String
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
@@ -233,10 +241,46 @@ private fun ImeInnerWindow() {
                 ImeUiMode.TEXT -> TextInputLayout()
                 ImeUiMode.MEDIA -> ProvideActualLayoutDirection { MediaInputLayout() }
                 ImeUiMode.CLIPBOARD -> ProvideActualLayoutDirection { ClipboardInputLayout() }
+                ImeUiMode.AULAA -> ProvideActualLayoutDirection { AulaaInputLayout() }
             }
             ImeSystemUiFloating()
         }
         ImeWindowResizeHandlesFixed()
+    }
+}
+
+@Composable
+private fun AulaaInputLayout() {
+    val context = LocalContext.current
+    val imeController = LocalImeController.current
+    val themeController = LocalThemeController.current
+    val activeTheme by themeController.effectiveTheme.collectAsState()
+    val api by context.aulaaApi()
+    val pairingStore by context.aulaaPairingStore()
+
+    AulaaTheme(darkTheme = activeTheme.config.isNightTheme) {
+        PaymentPanel(
+            api = api,
+            pairingStore = pairingStore,
+            onCommitText = { link ->
+                imeController.updateStateBlocking {
+                    emitText(link.asK3String())
+                    state = state.copy(
+                        flags = state.flags.withImeUiMode(ImeUiMode.TEXT),
+                    )
+                }
+            },
+            onClose = {
+                imeController.updateStateBlocking {
+                    state = state.copy(
+                        flags = state.flags.withImeUiMode(ImeUiMode.TEXT),
+                    )
+                }
+            },
+            onOpenPairing = {
+                FlorisImeService.launchAulaaPairing()
+            },
+        )
     }
 }
 

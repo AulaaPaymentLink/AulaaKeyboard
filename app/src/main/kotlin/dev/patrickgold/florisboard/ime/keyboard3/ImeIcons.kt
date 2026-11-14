@@ -36,6 +36,7 @@ object ImeIcons {
     val LanguageSwitch = flIcon("language_switch")
     val ClipboardPanel = flIcon("clipboard_panel")
     val MediaPanel = flIcon("media_panel")
+    val AulaaPanel = flIcon("aulaa_panel")
     val TextPanel = flIcon("text_panel")
     val Noop = flIcon("noop")
     val Redo = flIcon("redo")

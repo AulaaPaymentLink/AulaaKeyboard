@@ -26,6 +26,10 @@ import android.content.res.Configuration
 import android.os.Handler
 import android.util.Log
 import androidx.core.os.UserManagerCompat
+import co.aulaa.keyboard.payment.data.AndroidKeystorePairingStore
+import co.aulaa.keyboard.payment.data.AulaaApi
+import co.aulaa.keyboard.payment.data.HttpAulaaApi
+import co.aulaa.keyboard.payment.data.PairingStore
 import dev.patrickgold.florisboard.app.FlorisPreferenceModel
 import dev.patrickgold.florisboard.app.FlorisPreferenceStore
 import dev.patrickgold.florisboard.app.NoBackupPreferenceModel
@@ -89,6 +93,8 @@ class FlorisApplication : Application() {
     val glideTypingManager = lazy { GlideTypingManager(this) }
     val nlpManager = lazy { NlpManager(this) }
     val subtypeManager = lazy { SubtypeManager(this) }
+    val aulaaPairingStore: Lazy<PairingStore> = lazy { AndroidKeystorePairingStore(this) }
+    val aulaaApi: Lazy<AulaaApi> = lazy { HttpAulaaApi(aulaaPairingStore.value) }
 
     override fun onCreate() {
         super.onCreate()
@@ -199,3 +205,7 @@ fun Context.glideTypingManager() = this.inferFlorisApplication().glideTypingMana
 fun Context.nlpManager() = this.inferFlorisApplication().nlpManager
 
 fun Context.subtypeManager() = this.inferFlorisApplication().subtypeManager
+
+fun Context.aulaaPairingStore() = this.inferFlorisApplication().aulaaPairingStore
+
+fun Context.aulaaApi() = this.inferFlorisApplication().aulaaApi

@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.KeyboardDoubleArrowUp
 import androidx.compose.material.icons.filled.KeyboardHide
 import androidx.compose.material.icons.filled.KeyboardVoice
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SelectAll
@@ -157,6 +158,7 @@ fun staticIcon3(value: K3Descriptor, context: Context): ImageVector? {
         ImeIcons.LanguageSwitch -> Icons.Default.Language
         ImeIcons.ClipboardPanel -> Icons.AutoMirrored.Outlined.Assignment
         ImeIcons.MediaPanel -> Icons.Default.SentimentSatisfiedAlt
+        ImeIcons.AulaaPanel -> context.vectorResource(R.drawable.ic_aulaa_panel) ?: Icons.Default.Link
         ImeIcons.TextPanel -> context.vectorResource(R.drawable.ic_abc)
         ImeIcons.Noop -> Icons.Default.Close
         ImeIcons.Redo -> Icons.AutoMirrored.Filled.Redo
