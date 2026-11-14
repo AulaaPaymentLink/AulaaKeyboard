@@ -32,7 +32,7 @@ data class TouchModelOptions(
     companion object {
         val Default = TouchModelOptions(
             showNumberRow = false,
-            fnKeyEnabled = true,
+            fnKeyEnabled = false,
             fnKeyArrangement = FnKeyArrangement.Default,
             longPressKeyHintEnabled = true,
             longPressKeyHintPlacement = LongPressKeyHintPlacement.TOP_END,

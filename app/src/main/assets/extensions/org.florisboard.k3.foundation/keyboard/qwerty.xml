@@ -249,28 +249,28 @@
             <row keys="q w e r t y u i o p" />
             <row keys="a s d f g h j k l" />
             <row keys="base-to-shift z x c v b n m bksp" />
-            <row keys="symbol-1 comma-emoji aulaa-panel space period enter" />
+            <row keys="symbol-1 comma-emoji space period enter" />
         </layer>
 
         <layer id="shift">
             <row keys="Q W E R T Y U I O P" />
             <row keys="A S D F G H J K L" />
             <row keys="shift-to-base Z X C V B N M bksp" />
-            <row keys="symbol-1 comma-emoji aulaa-panel space period enter" />
+            <row keys="symbol-1 comma-emoji space period enter" />
         </layer>
 
         <layer id="symbol-1">
             <row keys="1 2 3 4 5 6 7 8 9 0" />
             <row keys="at hash dollar percent amp hyphen plus open-paren close-paren slash" />
             <row keys="symbol-2 asterisk double-quote apos colon semi-colon bang question bksp" />
-            <row keys="base comma-emoji aulaa-panel space period enter" />
+            <row keys="base comma-emoji space period enter" />
         </layer>
 
         <layer id="symbol-2">
             <row keys="tilde grave pipe gap gap gap gap gap gap gap" />
             <row keys="yen pound euro cent caret degree equal open-curly close-curly backslash" />
             <row keys="symbol-1 underscore gap gap gap gap open-square close-square bksp" />
-            <row keys="base open-angle aulaa-panel space close-angle enter" />
+            <row keys="base open-angle space close-angle enter" />
         </layer>
 
         <layer id="numeric">

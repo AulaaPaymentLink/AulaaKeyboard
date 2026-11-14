@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.patrickgold.florisboard.FlorisImeService
 import dev.patrickgold.florisboard.ime.keyboard.FlorisImeSizing
+import dev.patrickgold.florisboard.ime.keyboard3.ImeActions
+import dev.patrickgold.florisboard.ime.keyboard3.LocalImeController
 import dev.patrickgold.florisboard.ime.nlp.NlpInlineAutofill
 import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
 import org.florisboard.lib.android.AndroidVersion
@@ -69,6 +71,7 @@ val VerticalExitTransition = ExitTransition.verticalTween(AnimationDuration)
  */
 @Composable
 fun Smartbar() {
+    val imeController = LocalImeController.current
     val inlineSuggestions by NlpInlineAutofill.suggestions.collectAsState()
     val shouldShowInlineSuggestionsUi = AndroidVersion.ATLEAST_API30_R && inlineSuggestions.isNotEmpty()
 
@@ -98,7 +101,9 @@ fun Smartbar() {
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .clickable {
-                            FlorisImeService.launchAulaaPairing()
+                            imeController.updateStateBlocking {
+                                emit(ImeActions.ShowAulaaPanel)
+                            }
                         }
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
