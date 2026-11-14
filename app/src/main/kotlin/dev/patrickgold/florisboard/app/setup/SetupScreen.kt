@@ -16,24 +16,15 @@
 
 package dev.patrickgold.florisboard.app.setup
 
-import android.Manifest
 import android.content.Intent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -43,11 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.unit.dp
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.FlorisAppActivity
 import dev.patrickgold.florisboard.app.LocalNavController
@@ -56,12 +44,9 @@ import dev.patrickgold.florisboard.app.Routes
 import dev.patrickgold.florisboard.app.components.LocalPreviewFieldController
 import dev.patrickgold.florisboard.lib.util.InputMethodUtils
 import dev.patrickgold.florisboard.lib.util.launchActivity
-import dev.patrickgold.jetpref.datastore.model.collectAsState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import org.florisboard.lib.android.AndroidVersion
-import org.florisboard.lib.compose.FlorisBulletSpacer
 import org.florisboard.lib.compose.stringRes
 
 suspend fun Flow<Boolean>.awaitTransition() {
@@ -77,8 +62,7 @@ private sealed class Steps(val id: Int) {
     data object Welcome : Steps(id = 0)
     data object EnableIme : Steps(id = 1)
     data object SelectIme : Steps(id = 2)
-    data object NotificationPermission : Steps(id = 3)
-    data object FinishUp: Steps(id = 4)
+    data object FinishUp: Steps(id = 3)
 }
 
 @Composable
@@ -91,15 +75,6 @@ fun SetupScreen(hasRestoredBackup: Boolean) {
 
     val isFlorisBoardEnabled by InputMethodUtils.observeIsFlorisboardEnabled()
     val isFlorisBoardSelected by InputMethodUtils.observeIsFlorisboardSelected()
-
-    val notificationPermissionScreenSeen by noBackupPrefs.notificationPermissionScreenSeen.collectAsState()
-
-    val requestNotification =
-        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-            scope.launch {
-                noBackupPrefs.notificationPermissionScreenSeen.set(true)
-            }
-        }
 
     SideEffect {
         previewFieldController.isVisible = false
@@ -121,7 +96,6 @@ fun SetupScreen(hasRestoredBackup: Boolean) {
         welcomeSeen,
         isFlorisBoardEnabled,
         isFlorisBoardSelected,
-        notificationPermissionScreenSeen,
     ) {
         listOfNotNull(
             SetupStep(
@@ -136,11 +110,6 @@ fun SetupScreen(hasRestoredBackup: Boolean) {
                 onPrimary = {
                     welcomeSeen = true
                     next()
-                },
-                secondaryLabel = { stringRes(R.string.setup__welcome__restore_btn) },
-                secondaryStyle = SetupSecondaryStyle.TONAL,
-                onSecondary = {
-                    navController.navigate(Routes.Settings.Restore(isSetup = true))
                 },
                 showProgress = false,
             ),
@@ -168,32 +137,6 @@ fun SetupScreen(hasRestoredBackup: Boolean) {
                 primaryLabel = { stringRes(R.string.setup__select_ime__switch_keyboard_btn) },
                 onPrimary = { InputMethodUtils.showImePicker(context) },
             ),
-            if (AndroidVersion.ATLEAST_API33_T) {
-                SetupStep(
-                    id = Steps.NotificationPermission.id,
-                    required = false,
-                    satisfied = notificationPermissionScreenSeen,
-                    icon = Icons.Default.Notifications,
-                    shape = SetupShapes.Notifications,
-                    title = { stringRes(R.string.setup__grant_notification_permission__title) },
-                    summary = { stringRes(R.string.setup__grant_notification_permission__summary) },
-                    description = { stringRes(R.string.setup__grant_notification_permission__description) },
-                    primaryLabel = { stringRes(R.string.setup__grant_notification_permission__btn) },
-                    onPrimary = {
-                        scope.launch {
-                            noBackupPrefs.notificationPermissionScreenSeen.set(true)
-                        }
-                        requestNotification.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    },
-                    secondaryLabel = { stringRes(R.string.setup__grant_notification_permission__skip_btn) },
-                    onSecondary = {
-                        scope.launch {
-                            noBackupPrefs.notificationPermissionScreenSeen.set(true)
-                        }
-                        next()
-                    },
-                )
-            } else null,
             SetupStep(
                 id = Steps.FinishUp.id,
                 required = false,
@@ -216,7 +159,6 @@ fun SetupScreen(hasRestoredBackup: Boolean) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        bottomBar = { SetupLinks() }
     ) { contentPadding ->
         SetupFlowLayout(
             steps = steps,
@@ -224,28 +166,5 @@ fun SetupScreen(hasRestoredBackup: Boolean) {
                 .padding(contentPadding)
                 .fillMaxSize(),
         )
-    }
-}
-
-
-@Composable
-private fun SetupLinks() {
-    val uriHandler = LocalUriHandler.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.Center,
-    ) {
-        val privacyPolicyUrl = stringRes(R.string.florisboard__privacy_policy_url)
-        TextButton(onClick = { uriHandler.openUri(privacyPolicyUrl) }) {
-            Text(text = stringRes(R.string.setup__footer__privacy_policy))
-        }
-        FlorisBulletSpacer()
-        val repositoryUrl = stringRes(R.string.florisboard__repo_url)
-        TextButton(onClick = { uriHandler.openUri(repositoryUrl) }) {
-            Text(text = stringRes(R.string.setup__footer__source_code))
-        }
     }
 }

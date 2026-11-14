@@ -1,26 +1,26 @@
 {
   "$schema": "https://schemas.florisboard.org/snygg/v2/stylesheet",
   "@defines": {
-    "--primary": "#4caf50",
-    "--primary-variant": "#388e3c",
-    "--secondary": "#f57c00",
-    "--secondary-variant": "#e65100",
-    "--background": "#212121",
-    "--background-variant": "#313131",
-    "--surface": "#424242",
-    "--surface-variant": "#616161",
-    "--popup-surface": "#757575",
-    "--focused-popup-surface": "#bdbdbd",
+    "--primary": "#1B75BB",
+    "--primary-variant": "#155A91",
+    "--secondary": "#319FD6",
+    "--secondary-variant": "#2183B9",
+    "--background": "#1B1B1F",
+    "--background-variant": "#25252B",
+    "--surface": "#2E2E34",
+    "--surface-variant": "#484850",
+    "--popup-surface": "#484850",
+    "--focused-popup-surface": "#1B75BB",
     "--drag-marker": "rgb(255,0,0)",
     "--spacer-color": "rgba(255, 255, 255, 0.25)",
-    "--one-hand-background": "#1b5e20",
+    "--one-hand-background": "#1B1B1F",
     "--one-hand-foreground": "#eeeeee",
     "--incognito-icon-color": "#ffffff11",
-    "--on-primary": "#f0f0f0",
-    "--on-background": "#dcdcdc",
+    "--on-primary": "#ffffff",
+    "--on-background": "#e4e4e7",
     "--on-background-disabled": "#dcdcdc48",
     "--on-surface": "#ffffff",
-    "--on-surface-variant": "#a0a0a0",
+    "--on-surface-variant": "#b4b4bc",
 
     "--shape": "rounded-corner(8dp, 8dp, 8dp, 8dp)",
     "--shape-variant": "rounded-corner(12dp, 12dp, 12dp, 12dp)",
@@ -75,20 +75,52 @@
     "foreground": "var(--on-surface)"
   },
   "key[code=10]": {
-    "background": "var(--primary)",
-    "foreground": "var(--on-surface)"
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)",
+    "shape": "var(--shape-chip)"
   },
   "key[output=`@k3:action/enter`]": {
-    "background": "var(--primary)",
-    "foreground": "var(--on-surface)"
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)",
+    "shape": "var(--shape-chip)"
   },
   "key[code=10]:pressed": {
-    "background": "var(--primary-variant)",
-    "foreground": "var(--on-surface)"
+    "background": "var(--surface)",
+    "foreground": "var(--on-surface)",
+    "shape": "var(--shape-chip)"
   },
   "key[output=`@k3:action/enter`]:pressed": {
-    "background": "var(--primary-variant)",
+    "background": "var(--surface)",
+    "foreground": "var(--on-surface)",
+    "shape": "var(--shape-chip)"
+  },
+  "key[targetlayer=`symbol-1`]": {
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)",
+    "font-size": "16sp",
+    "shape": "var(--shape-chip)"
+  },
+  "key[targetlayer=`base`]": {
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)",
+    "font-size": "16sp",
+    "shape": "var(--shape-chip)"
+  },
+  "key[targetlayer=`shift`]": {
+    "background": "var(--surface-variant)",
     "foreground": "var(--on-surface)"
+  },
+  "key[output=`@k3:action/backspace`]": {
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)"
+  },
+  "key[output=`@fl:action/show_aulaa_panel`]": {
+    "background": "#1B75BB",
+    "foreground": "#ffffff"
+  },
+  "key[output=`@fl:action/show_aulaa_panel`]:pressed": {
+    "background": "#155A91",
+    "foreground": "#ffffff"
   },
   "key[code=32]": {
     "background": "var(--surface)",

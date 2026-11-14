@@ -63,24 +63,20 @@ fun TextInputLayout(
             .wrapContentHeight(),
     ) {
         Smartbar()
-        if (isActionsOverflowVisible) {
-            QuickActionsOverflowPanel()
-        } else {
-            Box {
-                val incognitoDisplayMode by prefs.keyboard.incognitoDisplayMode.collectAsState()
-                val showIncognitoIcon = isIncognitoMode &&
-                    incognitoDisplayMode == IncognitoDisplayMode.DISPLAY_BEHIND_KEYBOARD
-                if (showIncognitoIcon) {
-                    SnyggIcon(
-                        FlorisImeUi.IncognitoModeIndicator.elementName,
-                        modifier = Modifier
-                            .matchParentSize()
-                            .align(Alignment.Center),
-                        painter = painterResource(R.drawable.ic_incognito),
-                    )
-                }
-                ImeKeyboardBox()
+        Box {
+            val incognitoDisplayMode by prefs.keyboard.incognitoDisplayMode.collectAsState()
+            val showIncognitoIcon = isIncognitoMode &&
+                incognitoDisplayMode == IncognitoDisplayMode.DISPLAY_BEHIND_KEYBOARD
+            if (showIncognitoIcon) {
+                SnyggIcon(
+                    FlorisImeUi.IncognitoModeIndicator.elementName,
+                    modifier = Modifier
+                        .matchParentSize()
+                        .align(Alignment.Center),
+                    painter = painterResource(R.drawable.ic_incognito),
+                )
             }
+            ImeKeyboardBox()
         }
     }
 }

@@ -211,7 +211,7 @@ fun ImeKeyboardBox(
                 ImeKeyboardKeyBox(
                     touchKey = touchKey,
                     displayOverride = when {
-                        touchKey.isSuitableForSpaceBarDisplayOverride -> spaceBarDisplayOverride
+                        touchKey.isSuitableForSpaceBarDisplayOverride -> K3String.Empty
                         else -> null
                     },
                     isPressed = isPressed,

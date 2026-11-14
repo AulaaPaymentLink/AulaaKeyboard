@@ -80,12 +80,52 @@
     "foreground": "var(--on-surface)"
   },
   "key[code=10]": {
-    "background": "var(--primary)",
-    "foreground": "var(--on-surface)"
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)",
+    "shape": "var(--shape-chip)"
+  },
+  "key[output=`@k3:action/enter`]": {
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)",
+    "shape": "var(--shape-chip)"
   },
   "key[code=10]:pressed": {
-    "background": "var(--primary-variant)",
+    "background": "var(--surface)",
+    "foreground": "var(--on-surface)",
+    "shape": "var(--shape-chip)"
+  },
+  "key[output=`@k3:action/enter`]:pressed": {
+    "background": "var(--surface)",
+    "foreground": "var(--on-surface)",
+    "shape": "var(--shape-chip)"
+  },
+  "key[targetlayer=`symbol-1`]": {
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)",
+    "font-size": "16sp",
+    "shape": "var(--shape-chip)"
+  },
+  "key[targetlayer=`base`]": {
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)",
+    "font-size": "16sp",
+    "shape": "var(--shape-chip)"
+  },
+  "key[targetlayer=`shift`]": {
+    "background": "var(--surface-variant)",
     "foreground": "var(--on-surface)"
+  },
+  "key[output=`@k3:action/backspace`]": {
+    "background": "var(--surface-variant)",
+    "foreground": "var(--on-surface)"
+  },
+  "key[output=`@fl:action/show_aulaa_panel`]": {
+    "background": "#1B75BB",
+    "foreground": "#ffffff"
+  },
+  "key[output=`@fl:action/show_aulaa_panel`]:pressed": {
+    "background": "#155A91",
+    "foreground": "#ffffff"
   },
   "key[code=32]": {
     "background": "var(--surface)",

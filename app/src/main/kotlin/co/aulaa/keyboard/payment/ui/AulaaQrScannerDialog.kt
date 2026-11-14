@@ -70,6 +70,7 @@ import java.util.EnumMap
 @Composable
 fun AulaaQrScannerDialog(
     onDismiss: () -> Unit,
+    onManualInput: () -> Unit,
     onResult: (String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -121,7 +122,9 @@ fun AulaaQrScannerDialog(
     }
 
     JetPrefAlertDialog(
-        title = "Scan QR Code Pairing",
+        title = "Hubungkan Perangkat",
+        confirmLabel = "Ketik Kode Manual",
+        onConfirm = onManualInput,
         dismissLabel = "Batal",
         onDismiss = onDismiss,
     ) {

@@ -26,8 +26,6 @@ import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Keyboard
 import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.Storefront
 import androidx.compose.material3.ListItemDefaults
@@ -125,15 +123,11 @@ fun AulaaPairingContent(
         if (granted) {
             showQrScanner = true
         } else {
-            Toast.makeText(
-                context,
-                "Izin kamera diperlukan untuk memindai QR Code pairing.",
-                Toast.LENGTH_SHORT,
-            ).show()
+            showManualCodeDialog = true
         }
     }
 
-    fun openQrScanner() {
+    fun openPairingFlow() {
         val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.CAMERA,
@@ -156,55 +150,46 @@ fun AulaaPairingContent(
 
     Column(modifier = modifier) {
         SegmentedListColumn {
-            val count = 4
-            Preference(
-                shapes = ListItemDefaults.segmentedShapes(0, count),
-                icon = if (session != null) Icons.Outlined.CheckCircle else Icons.Outlined.Info,
-                title = if (session != null) {
-                    "Terhubung ke ${session!!.merchant.name}"
-                } else {
-                    "Belum Terhubung"
-                },
-                summary = if (claiming) {
-                    "Memverifikasi perangkat & kode pairing…"
-                } else if (session != null) {
-                    "Perangkat aktif: ${session!!.device.name}"
-                } else {
-                    "Buka Dashboard Web Aulaa → Pengaturan Akun → Aulaa Keyboard"
-                },
-                onClick = {
-                    if (session == null && !claiming) {
-                        openQrScanner()
-                    }
-                },
-            )
-            Preference(
-                shapes = ListItemDefaults.segmentedShapes(1, count),
-                icon = Icons.Default.QrCodeScanner,
-                title = "Scan QR Code Pairing",
-                summary = "Pindai barcode pairing langsung dari layar Dashboard Web Aulaa",
-                onClick = {
-                    if (!claiming) openQrScanner()
-                },
-            )
-            Preference(
-                shapes = ListItemDefaults.segmentedShapes(2, count),
-                icon = Icons.Outlined.Keyboard,
-                title = "Masukkan Kode Pairing",
-                summary = "Ketik kode 8 karakter secara manual (mis. ABCD-EFGH)",
-                onClick = {
-                    if (!claiming) showManualCodeDialog = true
-                },
-            )
-            Preference(
-                shapes = ListItemDefaults.segmentedShapes(3, count),
-                icon = Icons.Outlined.Smartphone,
-                title = "Nama Perangkat",
-                summary = session?.device?.name ?: deviceNameInput,
-                onClick = {
-                    showDeviceNameDialog = true
-                },
-            )
+            val count = 2
+            if (session != null) {
+                Preference(
+                    shapes = ListItemDefaults.segmentedShapes(0, count),
+                    icon = Icons.Outlined.CheckCircle,
+                    title = "Terhubung ke ${session!!.merchant.name}",
+                    summary = "Akun merchant aktif",
+                )
+                Preference(
+                    shapes = ListItemDefaults.segmentedShapes(1, count),
+                    icon = Icons.Outlined.Smartphone,
+                    title = "Nama Perangkat",
+                    summary = session!!.device.name,
+                )
+            } else {
+                Preference(
+                    shapes = ListItemDefaults.segmentedShapes(0, count),
+                    icon = Icons.Default.QrCodeScanner,
+                    title = if (claiming) "Menghubungkan Perangkat…" else "Hubungkan Perangkat",
+                    summary = if (claiming) {
+                        "Memverifikasi perangkat & kode pairing…"
+                    } else {
+                        "Belum terhubung · Scan QR Code atau ketik kode dari Dashboard Web Aulaa"
+                    },
+                    onClick = {
+                        if (!claiming) {
+                            openPairingFlow()
+                        }
+                    },
+                )
+                Preference(
+                    shapes = ListItemDefaults.segmentedShapes(1, count),
+                    icon = Icons.Outlined.Smartphone,
+                    title = "Nama Perangkat",
+                    summary = deviceNameInput,
+                    onClick = {
+                        showDeviceNameDialog = true
+                    },
+                )
+            }
         }
 
         if (session != null) {
@@ -268,6 +253,10 @@ fun AulaaPairingContent(
     if (showQrScanner) {
         AulaaQrScannerDialog(
             onDismiss = { showQrScanner = false },
+            onManualInput = {
+                showQrScanner = false
+                showManualCodeDialog = true
+            },
             onResult = { scannedRaw ->
                 showQrScanner = false
                 val extracted = extractCodeFromInput(scannedRaw)

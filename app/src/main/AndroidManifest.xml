@@ -12,9 +12,6 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
 
-    <!-- Permission needed to create notifications on devices running Android 13+ -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-
     <!-- Android 11+ only: Define that FlorisBoard requests to see all apps that
           ship with an IME or Spell Check service. This is used to guide the user
           in the Settings Ui why FlorisBoard may not be working.
@@ -122,14 +119,6 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity-alias>
-
-        <!-- Crash Dialog Activity -->
-        <activity
-            android:name="dev.patrickgold.florisboard.lib.crashutility.CrashDialogActivity"
-            android:icon="@mipmap/floris_app_icon"
-            android:label="@string/crash_dialog__title"
-            android:configChanges="orientation|screenSize"
-            android:theme="@style/CrashDialogTheme"/>
 
         <!-- Copy to Clipboard Activity -->
         <activity

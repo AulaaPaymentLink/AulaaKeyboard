@@ -45,7 +45,6 @@ import dev.patrickgold.florisboard.ime.nlp.NlpManager
 import dev.patrickgold.florisboard.ime.text.gestures.GlideTypingManager
 import dev.patrickgold.florisboard.ime.theme.SystemThemeMode
 import dev.patrickgold.florisboard.ime.theme.ThemeController
-import dev.patrickgold.florisboard.lib.crashutility.CrashUtility
 import dev.patrickgold.florisboard.lib.devtools.Flog
 import dev.patrickgold.florisboard.lib.devtools.LogTopic
 import dev.patrickgold.florisboard.lib.devtools.flogError
@@ -108,7 +107,6 @@ class FlorisApplication : Application() {
                 flogLevels = Flog.LEVEL_ALL,
                 flogOutputs = Flog.OUTPUT_CONSOLE,
             )
-            CrashUtility.install(this)
 
             storageController = AndroidStorageController(this)
             extensionController = ExtensionController(storageController)
@@ -130,7 +128,7 @@ class FlorisApplication : Application() {
 
             init()
         } catch (e: Exception) {
-            CrashUtility.stageException(e)
+            flogError { e.toString() }
             return
         }
     }
