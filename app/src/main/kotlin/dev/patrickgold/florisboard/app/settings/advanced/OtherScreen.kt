@@ -18,12 +18,10 @@ package dev.patrickgold.florisboard.app.settings.advanced
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Adb
-import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.FormatColorFill
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Preview
-import androidx.compose.material.icons.filled.SettingsBackupRestore
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -179,24 +177,6 @@ fun OtherScreen() {
                     icon = Icons.Default.Adb,
                     title = stringRes(R.string.devtools__title),
                     onClick = { navController.navigate(Routes.Devtools.Home) },
-                )
-            }
-
-            SegmentedListColumn(title = stringRes(R.string.backup_and_restore__title)) {
-                val count = 2
-                Preference(
-                    onClick = { navController.navigate(Routes.Settings.Backup) },
-                    shapes = ListItemDefaults.segmentedShapes(0, count),
-                    icon = Icons.Default.Archive,
-                    title = stringRes(R.string.backup_and_restore__back_up__title),
-                    summary = stringRes(R.string.backup_and_restore__back_up__summary),
-                )
-                Preference(
-                    onClick = { navController.navigate(Routes.Settings.Restore()) },
-                    shapes = ListItemDefaults.segmentedShapes(1, count),
-                    icon = Icons.Default.SettingsBackupRestore,
-                    title = stringRes(R.string.backup_and_restore__restore__title),
-                    summary = stringRes(R.string.backup_and_restore__restore__summary),
                 )
             }
         }

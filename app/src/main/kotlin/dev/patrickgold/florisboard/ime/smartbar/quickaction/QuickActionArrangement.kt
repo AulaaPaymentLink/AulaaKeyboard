@@ -128,10 +128,15 @@ data class QuickActionArrangement(
 
         override fun deserialize(value: String): QuickActionArrangement {
             val parsed = QuickActionJsonConfig.decodeFromString<QuickActionArrangement>(value)
-            return if (AulaaQuickAction in parsed) {
+            return if (parsed.stickyAction == AulaaQuickAction) {
                 parsed
             } else {
-                parsed.copy(dynamicActions = listOf(AulaaQuickAction) + parsed.dynamicActions)
+                val oldSticky = listOfNotNull(parsed.stickyAction).filter { it != AulaaQuickAction }
+                parsed.copy(
+                    stickyAction = AulaaQuickAction,
+                    dynamicActions = oldSticky + parsed.dynamicActions.filter { it != AulaaQuickAction },
+                    hiddenActions = parsed.hiddenActions.filter { it != AulaaQuickAction },
+                )
             }
         }
     }

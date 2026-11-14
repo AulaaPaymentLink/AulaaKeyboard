@@ -18,16 +18,11 @@ package dev.patrickgold.florisboard.app.settings
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
-import androidx.compose.material.icons.filled.Gesture
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Link
-import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
-import androidx.compose.material.icons.filled.SmartButton
 import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -90,58 +85,24 @@ fun HomeScreen() {
             }
 
             SegmentedListColumn {
-                val count = 4
+                val count = 3
                 Preference(
                     shapes = ListItemDefaults.segmentedShapes(0, count),
-                    icon = Icons.Default.Language,
-                    title = stringRes(R.string.settings__localization__title),
-                    onClick = { navController.navigate(Routes.Settings.Localization) },
-                )
-                Preference(
-                    shapes = ListItemDefaults.segmentedShapes(1, count),
-                    icon = Icons.Outlined.Palette,
-                    title = stringRes(R.string.settings__theme__title),
-                    onClick = { navController.navigate(Routes.Settings.Theme) },
-                )
-                Preference(
-                    shapes = ListItemDefaults.segmentedShapes(2, count),
                     icon = Icons.Outlined.Keyboard,
                     title = stringRes(R.string.settings__keyboard__title),
                     onClick = { navController.navigate(Routes.Settings.Keyboard) },
                 )
                 Preference(
-                    shapes = ListItemDefaults.segmentedShapes(3, count),
-                    icon = Icons.Default.SmartButton,
-                    title = stringRes(R.string.settings__smartbar__title),
-                    onClick = { navController.navigate(Routes.Settings.Smartbar) },
-                )
-            }
-
-            SegmentedListColumn {
-                val count = 4
-                Preference(
-                    shapes = ListItemDefaults.segmentedShapes(0, count),
+                    shapes = ListItemDefaults.segmentedShapes(1, count),
                     icon = Icons.Default.Spellcheck,
                     title = stringRes(R.string.settings__typing__title),
                     onClick = { navController.navigate(Routes.Settings.Typing) },
-                )
-                Preference(
-                    shapes = ListItemDefaults.segmentedShapes(1, count),
-                    icon = Icons.Default.Gesture,
-                    title = stringRes(R.string.settings__gestures__title),
-                    onClick = { navController.navigate(Routes.Settings.Gestures) },
                 )
                 Preference(
                     shapes = ListItemDefaults.segmentedShapes(2, count),
                     icon = Icons.AutoMirrored.Outlined.Assignment,
                     title = stringRes(R.string.settings__clipboard__title),
                     onClick = { navController.navigate(Routes.Settings.Clipboard) },
-                )
-                Preference(
-                    shapes = ListItemDefaults.segmentedShapes(3, count),
-                    icon = Icons.Default.SentimentSatisfiedAlt,
-                    title = stringRes(R.string.settings__media__title),
-                    onClick = { navController.navigate(Routes.Settings.Media) },
                 )
             }
 
