@@ -63,6 +63,7 @@ import co.aulaa.keyboard.payment.data.Product
 import co.aulaa.keyboard.payment.data.Project
 import co.aulaa.keyboard.payment.data.formatIdr
 import co.aulaa.keyboard.payment.theme.AulaaTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -110,6 +111,29 @@ fun PaymentPanel(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var tokenRevoked by remember { mutableStateOf(false) }
 
+    fun loadProducts(projectIdFilter: String? = selectedProject?.id, searchQuery: String = search) {
+        if (!isPaired) return
+        scope.launch {
+            loadingData = true
+            val activeProjectId = projectIdFilter ?: selectedProject?.id
+            val cleanQuery = searchQuery.trim().ifBlank { null }
+            runCatching { api.listProducts(projectId = activeProjectId, query = cleanQuery) }
+                .onSuccess { fetched ->
+                    products = if (fetched.isEmpty() && activeProjectId != null && cleanQuery == null) {
+                        runCatching { api.listProducts(projectId = null, query = null) }.getOrDefault(emptyList())
+                    } else {
+                        fetched
+                    }
+                }
+                .onFailure { err ->
+                    if (err is AulaaApiException && err.isUnauthorized) {
+                        tokenRevoked = true
+                    }
+                }
+            loadingData = false
+        }
+    }
+
     fun loadMerchantData(projectIdFilter: String? = selectedProject?.id) {
         if (!isPaired) return
         scope.launch {
@@ -134,9 +158,10 @@ fun PaymentPanel(
                 }
 
             val activeProjectId = projectIdFilter ?: selectedProject?.id
-            runCatching { api.listProducts(projectId = activeProjectId, query = null) }
+            val cleanQuery = search.trim().ifBlank { null }
+            runCatching { api.listProducts(projectId = activeProjectId, query = cleanQuery) }
                 .onSuccess { fetched ->
-                    products = if (fetched.isEmpty() && activeProjectId != null) {
+                    products = if (fetched.isEmpty() && activeProjectId != null && cleanQuery == null) {
                         runCatching { api.listProducts(projectId = null, query = null) }.getOrDefault(emptyList())
                     } else {
                         fetched
@@ -156,6 +181,14 @@ fun PaymentPanel(
             tokenRevoked = false
             loadMerchantData()
         }
+    }
+
+    LaunchedEffect(isPaired, selectedProject?.id, search) {
+        if (!isPaired || tokenRevoked) return@LaunchedEffect
+        if (search.isNotBlank()) {
+            delay(250)
+        }
+        loadProducts(projectIdFilter = selectedProject?.id, searchQuery = search)
     }
 
     Column(
@@ -241,6 +274,15 @@ fun PaymentPanel(
                             creating = false
                             createdLink = link
                             screen = Screen.Ready
+                            if (link.expiresAt.isNullOrBlank()) {
+                                runCatching { api.transactionStatus(link.id) }
+                                    .onSuccess { updated ->
+                                        createdLink = updated.copy(
+                                            amount = if (updated.amount > 0) updated.amount else link.amount,
+                                            orderId = updated.orderId ?: link.orderId,
+                                        )
+                                    }
+                            }
                         }.onFailure { err ->
                             creating = false
                             if (err is AulaaApiException && err.isUnauthorized) {
@@ -264,6 +306,8 @@ fun PaymentPanel(
                             .onSuccess { updated ->
                                 createdLink = updated.copy(
                                     amount = if (updated.amount > 0) updated.amount else current.amount,
+                                    orderId = updated.orderId ?: current.orderId,
+                                    expiresAt = updated.expiresAt ?: current.expiresAt,
                                 )
                             }
                             .onFailure { err ->
@@ -587,28 +631,52 @@ private fun LinkReady(
         }
 
         // link card
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
                 .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
-                link.payUrl.removePrefix("https://"),
-                color = p.foreground,
-                fontSize = 12.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(formatIdr(link.amount), color = p.mutedForeground, fontSize = 12.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    link.payUrl.removePrefix("https://"),
+                    color = p.foreground,
+                    fontSize = 12.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(formatIdr(link.amount), color = p.mutedForeground, fontSize = 12.sp)
+            }
+            val metaParts = buildList {
+                link.orderId?.takeIf { it.isNotBlank() }?.let { add("Order: $it") }
+                link.expiresAt?.takeIf { it.isNotBlank() }?.let { add("Berlaku s/d ${formatTimestampShort(it)}") }
+            }
+            if (metaParts.isNotEmpty()) {
+                Text(
+                    text = metaParts.joinToString("  ·  "),
+                    color = p.mutedForeground,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
 
         PrimaryButton(text = "Tempel ke chat", enabled = true, onClick = onCommit)
         OutlineButton(text = "Buat link lagi", onClick = onAgain)
     }
+}
+
+private fun formatTimestampShort(raw: String): String {
+    val clean = raw.trim()
+    // ISO-8601 e.g. "2026-11-15T20:42:46Z" or "2026-11-15T20:42:46+07:00" -> "2026-11-15 20:42"
+    if (clean.length >= 16 && clean[4] == '-' && clean[7] == '-' && (clean[10] == 'T' || clean[10] == ' ')) {
+        return "${clean.substring(0, 10)} ${clean.substring(11, 16)}"
+    }
+    return clean
 }
 
 /* ----------------------------------------------------------------------- */
@@ -630,8 +698,7 @@ private fun ProdukTab(
             onValueChange = onSearch,
             placeholder = "Cari produk…",
         )
-        val shown = if (search.isBlank()) products
-        else products.filter { it.name.contains(search, ignoreCase = true) }
+        val shown = products
 
         if (shown.isEmpty()) {
             Box(

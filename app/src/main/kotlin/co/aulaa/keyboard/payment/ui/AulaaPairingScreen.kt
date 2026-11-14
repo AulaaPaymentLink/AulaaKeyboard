@@ -46,6 +46,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import co.aulaa.keyboard.payment.data.AulaaApi
+import co.aulaa.keyboard.payment.data.AulaaAttestation
 import co.aulaa.keyboard.payment.data.PairingStore
 import dev.patrickgold.florisboard.app.components.SegmentedListColumn
 import dev.patrickgold.jetpref.datastore.ui.Preference
@@ -89,9 +90,15 @@ fun AulaaPairingContent(
 
     fun submitClaim(rawCode: String) {
         val cleanCode = extractCodeFromInput(rawCode)
-        val cleanDevice = deviceNameInput.trim().take(100).ifBlank { defaultDeviceName() }
+        val cleanDevice = AulaaAttestation.sanitizeDeviceName(deviceNameInput)
+            .ifBlank { defaultDeviceName() }
         if (cleanCode.isBlank()) {
             Toast.makeText(context, "Masukkan kode pairing 8 karakter dari Dashboard Aulaa.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val nameErr = AulaaAttestation.validateDeviceName(cleanDevice)
+        if (nameErr != null) {
+            Toast.makeText(context, nameErr, Toast.LENGTH_LONG).show()
             return
         }
         claiming = true
@@ -307,8 +314,14 @@ fun AulaaPairingContent(
             title = "Nama Perangkat",
             confirmLabel = "Simpan",
             onConfirm = {
-                deviceNameInput = draftName.trim().take(100).ifBlank { defaultDeviceName() }
-                showDeviceNameDialog = false
+                val cleaned = AulaaAttestation.sanitizeDeviceName(draftName).ifBlank { defaultDeviceName() }
+                val err = AulaaAttestation.validateDeviceName(cleaned)
+                if (err != null) {
+                    Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                } else {
+                    deviceNameInput = cleaned
+                    showDeviceNameDialog = false
+                }
             },
             dismissLabel = "Batal",
             onDismiss = { showDeviceNameDialog = false },
@@ -370,5 +383,6 @@ private fun defaultDeviceName(): String {
     } else {
         "$manufacturer $model".trim()
     }
-    return combined.replaceFirstChar { it.uppercase() }.ifBlank { "Android Device" }.take(100)
+    val candidate = AulaaAttestation.sanitizeDeviceName(combined.replaceFirstChar { it.uppercase() })
+    return if (AulaaAttestation.validateDeviceName(candidate) == null) candidate else "Android Device"
 }

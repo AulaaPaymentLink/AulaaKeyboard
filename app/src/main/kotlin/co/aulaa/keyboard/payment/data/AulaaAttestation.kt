@@ -58,6 +58,12 @@ object AulaaAttestation {
     private const val ANDROID_KEYSTORE = "AndroidKeyStore"
     private const val ATTESTATION_KEY_ALIAS = "co.aulaa.keyboard.pairing_attestation_key"
 
+    private val INJECTION_TOKENS = listOf(
+        "' or ", "\" or ", " or 1=1", "1=1", "union select", "drop table",
+        "insert into", "delete from", "; drop", "<script", "javascript:",
+        "onerror=", "onload=",
+    )
+
     /**
      * Normalizes a pairing code the same way the backend does:
      * uppercase, stripping hyphens and whitespace.
@@ -73,11 +79,64 @@ object AulaaAttestation {
     }
 
     /**
+     * Cleans `device_name` once so the exact same string is used in the JSON body
+     * AND in [buildCanonicalChallenge], matching `web.ValidateDisplayName` on the server
+     * (which re-trims whitespace).
+     */
+    fun sanitizeDeviceName(rawDeviceName: String): String {
+        return rawDeviceName.trim().take(100).trim()
+    }
+
+    /**
+     * Validates a sanitized `device_name` using the exact same rules as
+     * `web.ValidateDisplayName` on the backend (`>= 2` chars, contains at least
+     * one letter, no `<` or `>`, no control or zero-width characters, and no
+     * injection tokens). Returns an Indonesian error message if invalid, or `null` if valid.
+     */
+    fun validateDeviceName(cleanDeviceName: String): String? {
+        if (cleanDeviceName.length < 2) {
+            return "Nama perangkat minimal 2 karakter."
+        }
+        if (cleanDeviceName.length > 100) {
+            return "Nama perangkat maksimal 100 karakter."
+        }
+        var hasLetter = false
+        for (ch in cleanDeviceName) {
+            val code = ch.code
+            if (code < 0x20 || code == 0x7f || ch.isISOControl()) {
+                return "Nama perangkat mengandung karakter kontrol yang tidak diperbolehkan."
+            }
+            if (ch == '<' || ch == '>') {
+                return "Nama perangkat tidak boleh mengandung karakter < atau >."
+            }
+            if (
+                ch == '\u200b' || ch == '\u200c' || ch == '\u200d' ||
+                ch == '\ufeff' || ch == '\u202e' || ch.category == CharCategory.FORMAT
+            ) {
+                return "Nama perangkat mengandung karakter tersembunyi (zero-width) yang tidak diperbolehkan."
+            }
+            if (ch.isLetter()) {
+                hasLetter = true
+            }
+        }
+        if (!hasLetter) {
+            return "Nama perangkat wajib mengandung huruf."
+        }
+        val lower = cleanDeviceName.lowercase()
+        for (token in INJECTION_TOKENS) {
+            if (lower.contains(token)) {
+                return "Nama perangkat mengandung pola yang tidak diperbolehkan."
+            }
+        }
+        return null
+    }
+
+    /**
      * Builds the canonical challenge string bound to this specific claim request.
      */
     fun buildCanonicalChallenge(rawCode: String, deviceName: String): String {
         val cleanCode = normalizePairingCode(rawCode)
-        val cleanDevice = deviceName.trim().take(100)
+        val cleanDevice = sanitizeDeviceName(deviceName)
         return "aulaa-pairing-v1:$cleanCode:$cleanDevice"
     }
 
@@ -112,6 +171,10 @@ object AulaaAttestation {
         val certs = keyStore.getCertificateChain(ATTESTATION_KEY_ALIAS)
             ?.map { cert -> Base64.encodeToString(cert.encoded, Base64.NO_WRAP) }
             .orEmpty()
+        if (certs.size < 2) {
+            runCatching { keyStore.deleteEntry(ATTESTATION_KEY_ALIAS) }
+            throw IllegalStateException("Perangkat tidak mengembalikan rantai sertifikat attestation hardware.")
+        }
 
         val signatureBytes = Signature.getInstance("SHA256withECDSA").run {
             initSign(keyPair.private)

@@ -52,31 +52,34 @@ class HttpAulaaApi(
 
     override suspend fun claimPairing(code: String, deviceName: String): PairingSession {
         val cleanCode = code.trim()
-        val cleanDeviceName = deviceName.trim().take(100)
+        val nama = deviceName.trim().take(100).trim()
         if (cleanCode.isBlank()) {
             throw AulaaApiException(400, "Kode pairing wajib diisi.")
         }
-        if (cleanDeviceName.isBlank()) {
-            throw AulaaApiException(400, "Nama perangkat wajib diisi (maks 100 karakter).")
+        AulaaAttestation.validateDeviceName(nama)?.let { validationError ->
+            throw AulaaApiException(400, validationError)
         }
 
-        val attestation = runCatching {
-            AulaaAttestation.generateForPairingClaim(cleanCode, cleanDeviceName)
-        }.getOrNull()
+        val attestation = try {
+            AulaaAttestation.generateForPairingClaim(cleanCode, nama)
+        } catch (_: Exception) {
+            throw AulaaApiException(
+                statusCode = 403,
+                message = "Perangkat tidak mendukung attestation hardware yang diperlukan untuk keamanan Aulaa Keyboard.",
+            )
+        }
 
         val bodyJson = buildJsonObject {
             put("code", cleanCode)
-            put("device_name", cleanDeviceName)
-            if (attestation != null) {
-                put("attestation", buildJsonObject {
-                    put("version", attestation.version)
-                    put("challenge", attestation.challenge)
-                    put("signature", attestation.signature)
-                    put("cert_chain", buildJsonArray {
-                        attestation.certChain.forEach { certB64 -> add(JsonPrimitive(certB64)) }
-                    })
+            put("device_name", nama)
+            put("attestation", buildJsonObject {
+                put("version", attestation.version)
+                put("challenge", attestation.challenge)
+                put("signature", attestation.signature)
+                put("cert_chain", buildJsonArray {
+                    attestation.certChain.forEach { certB64 -> add(JsonPrimitive(certB64)) }
                 })
-            }
+            })
         }.toString()
 
         val response = request(
@@ -98,7 +101,7 @@ class HttpAulaaApi(
         val deviceObj = root["device"] as? JsonObject
         val device = PairedDeviceInfo(
             id = deviceObj?.string("id") ?: "",
-            name = deviceObj?.string("name") ?: cleanDeviceName,
+            name = deviceObj?.string("name") ?: nama,
         )
 
         val merchantObj = root["merchant"] as? JsonObject
@@ -181,12 +184,14 @@ class HttpAulaaApi(
     }
 
     override suspend fun listProducts(projectId: String?, query: String?): List<Product> {
-        val path = if (!projectId.isNullOrBlank()) {
-            val encodedPrj = URLEncoder.encode(projectId, "UTF-8")
-            "/v1/products?project_id=$encodedPrj"
-        } else {
-            "/v1/products"
+        val params = mutableListOf("limit=100")
+        if (!projectId.isNullOrBlank()) {
+            params += "project_id=${URLEncoder.encode(projectId.trim(), "UTF-8")}"
         }
+        if (!query.isNullOrBlank()) {
+            params += "search=${URLEncoder.encode(query.trim(), "UTF-8")}"
+        }
+        val path = "/v1/products?${params.joinToString("&")}"
 
         val response = request(
             method = "GET",
@@ -194,15 +199,9 @@ class HttpAulaaApi(
             authenticated = true,
         )
         val payBaseUrl = pairingStore.payBaseUrl()
-        val products = response.asArray()
+        return response.asArray()
             .mapNotNull { (it as? JsonObject)?.toProduct(payBaseUrl) }
             .filter { it.isActive }
-
-        return if (query.isNullOrBlank()) {
-            products
-        } else {
-            products.filter { it.name.contains(query.trim(), ignoreCase = true) }
-        }
     }
 
     private suspend fun request(
@@ -331,9 +330,9 @@ class HttpAulaaApi(
             id = id,
             amount = amount,
             status = status,
-            expiresAt = string("expires_at"),
+            expiresAt = string("effective_expired_at") ?: string("expired_at") ?: string("expires_at"),
             paidAt = string("paid_at"),
-            orderId = string("order_id"),
+            orderId = string("external_id") ?: string("order_id"),
             payBaseUrl = payBaseUrl,
         )
     }
