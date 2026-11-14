@@ -22,20 +22,17 @@ import androidx.compose.material.icons.filled.Spellcheck
 import androidx.compose.material.icons.outlined.Build
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.Payments
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.vectorResource
 import dev.patrickgold.florisboard.R
 import dev.patrickgold.florisboard.app.LocalNavController
 import dev.patrickgold.florisboard.app.Routes
 import dev.patrickgold.florisboard.app.components.ScrollableScreenColumn
 import dev.patrickgold.florisboard.app.components.SegmentedListColumn
 import dev.patrickgold.florisboard.app.components.FlorisScreenNg
-import dev.patrickgold.florisboard.aulaaPairingStore
 import dev.patrickgold.florisboard.lib.util.InputMethodUtils
 import dev.patrickgold.jetpref.datastore.ui.Preference
 import org.florisboard.lib.compose.FlorisErrorCard
@@ -48,8 +45,6 @@ fun HomeScreen() {
     val context = LocalContext.current
     val isFlorisBoardEnabled by InputMethodUtils.observeIsFlorisboardEnabled()
     val isFlorisBoardSelected by InputMethodUtils.observeIsFlorisboardSelected()
-    val pairingStore by context.aulaaPairingStore()
-    val pairingSession by pairingStore.sessionFlow.collectAsState()
 
     FlorisScreenNg(
         title = stringRes(R.string.settings__home__title),
@@ -74,13 +69,8 @@ fun HomeScreen() {
             SegmentedListColumn {
                 Preference(
                     shapes = ListItemDefaults.segmentedShapes(0, 1),
-                    icon = ImageVector.vectorResource(R.drawable.ic_aulaa_panel),
+                    icon = Icons.Outlined.Payments,
                     title = "Aulaa Payment Link",
-                    summary = if (pairingSession != null) {
-                        "Terhubung ke ${pairingSession!!.merchant.name} (${pairingSession!!.device.name})"
-                    } else {
-                        "Buat link pembayaran langsung dari keyboard HP"
-                    },
                     onClick = { navController.navigate(Routes.Settings.Aulaa()) },
                 )
             }

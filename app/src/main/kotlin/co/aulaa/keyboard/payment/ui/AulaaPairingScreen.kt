@@ -10,25 +10,29 @@
 
 package co.aulaa.keyboard.payment.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LinkOff
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Keyboard
+import androidx.compose.material.icons.outlined.Smartphone
+import androidx.compose.material.icons.outlined.Storefront
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,30 +42,25 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import co.aulaa.keyboard.payment.data.AulaaApi
-import co.aulaa.keyboard.payment.data.PairingSession
 import co.aulaa.keyboard.payment.data.PairingStore
-import co.aulaa.keyboard.payment.theme.AulaaBrandMark
-import co.aulaa.keyboard.payment.theme.AulaaTheme
+import dev.patrickgold.florisboard.app.components.SegmentedListColumn
+import dev.patrickgold.jetpref.datastore.ui.Preference
+import dev.patrickgold.jetpref.material.ui.JetPrefAlertDialog
 import kotlinx.coroutines.launch
 
 /**
  * Companion-app Pairing & Merchant Device Management screen.
  *
- * Calls `POST /v1/keyboard/pairing/claim` with an Android Keystore Hardware Key
- * Attestation proof (`version = 1`), ensuring only official Aulaa-signed APK
- * releases can claim a pairing code.
+ * Uses the exact same Material 3 [SegmentedListColumn], [Preference], and
+ * [JetPrefAlertDialog] components as all other settings screens in the app,
+ * plus an integrated camera QR scanner ([AulaaQrScannerDialog]) for scanning
+ * the pairing barcode directly from the Aulaa Web Dashboard.
  */
 @Composable
 fun AulaaPairingContent(
@@ -70,7 +69,7 @@ fun AulaaPairingContent(
     initialPairingCode: String? = null,
     modifier: Modifier = Modifier,
 ) {
-    val p = AulaaTheme.palette
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
     val session by pairingStore.sessionFlow.collectAsState()
@@ -84,38 +83,65 @@ fun AulaaPairingContent(
 
     var claiming by remember { mutableStateOf(false) }
     var syncingProjects by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var isError by remember { mutableStateOf(false) }
+
+    var showQrScanner by remember { mutableStateOf(false) }
+    var showManualCodeDialog by remember { mutableStateOf(false) }
+    var showDeviceNameDialog by remember { mutableStateOf(false) }
+    var showUnpairConfirmDialog by remember { mutableStateOf(false) }
 
     fun submitClaim(rawCode: String) {
         val cleanCode = extractCodeFromInput(rawCode)
-        val cleanDevice = deviceNameInput.trim().take(100)
+        val cleanDevice = deviceNameInput.trim().take(100).ifBlank { defaultDeviceName() }
         if (cleanCode.isBlank()) {
-            isError = true
-            statusMessage = "Masukkan kode pairing 8 karakter dari Dashboard Aulaa."
-            return
-        }
-        if (cleanDevice.isBlank()) {
-            isError = true
-            statusMessage = "Nama perangkat wajib diisi (maks 100 karakter)."
+            Toast.makeText(context, "Masukkan kode pairing 8 karakter dari Dashboard Aulaa.", Toast.LENGTH_SHORT).show()
             return
         }
         claiming = true
-        statusMessage = null
-        isError = false
         scope.launch {
             runCatching {
                 api.claimPairing(cleanCode, cleanDevice)
             }.onSuccess { claimed ->
                 claiming = false
                 codeInput = ""
-                isError = false
-                statusMessage = "Berhasil terhubung ke ${claimed.merchant.name} sebagai ${claimed.device.name}."
+                Toast.makeText(
+                    context,
+                    "Berhasil terhubung ke ${claimed.merchant.name}",
+                    Toast.LENGTH_LONG,
+                ).show()
             }.onFailure { err ->
                 claiming = false
-                isError = true
-                statusMessage = err.message ?: "Gagal melakukan klaim pairing."
+                Toast.makeText(
+                    context,
+                    err.message ?: "Gagal melakukan klaim pairing.",
+                    Toast.LENGTH_LONG,
+                ).show()
             }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) {
+            showQrScanner = true
+        } else {
+            Toast.makeText(
+                context,
+                "Izin kamera diperlukan untuk memindai QR Code pairing.",
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+    }
+
+    fun openQrScanner() {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA,
+        ) == PackageManager.PERMISSION_GRANTED
+        if (hasPermission) {
+            showQrScanner = true
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 
@@ -128,354 +154,210 @@ fun AulaaPairingContent(
         }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        // Header banner (matching apps/tenant-dashboard/src/components/settings-keyboard-section.tsx)
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(p.card, RoundedCornerShape(AulaaTheme.radiusLg))
-                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radiusLg))
-                .padding(14.dp),
-        ) {
-            AulaaBrandMark(size = 38.dp)
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "Aulaa Keyboard",
-                    color = p.foreground,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    if (session != null) {
-                        "Terhubung ke ${session!!.merchant.name}"
-                    } else {
-                        "Buat link pembayaran langsung dari keyboard HP"
-                    },
-                    color = if (session != null) p.brandDeep else p.mutedForeground,
-                    fontSize = 12.5.sp,
-                )
-            }
-        }
-
-        if (statusMessage != null) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(if (isError) p.muted else p.brandTint, RoundedCornerShape(AulaaTheme.radius))
-                    .border(
-                        BorderStroke(1.dp, if (isError) p.border else p.brandMid),
-                        RoundedCornerShape(AulaaTheme.radius),
-                    )
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-            ) {
-                Text(
-                    text = statusMessage!!,
-                    color = if (isError) p.foreground else p.brandDeep,
-                    fontSize = 12.5.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    "✕",
-                    color = p.mutedForeground,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable { statusMessage = null },
-                )
-            }
+    Column(modifier = modifier) {
+        SegmentedListColumn {
+            val count = 4
+            Preference(
+                shapes = ListItemDefaults.segmentedShapes(0, count),
+                icon = if (session != null) Icons.Outlined.CheckCircle else Icons.Outlined.Info,
+                title = if (session != null) {
+                    "Terhubung ke ${session!!.merchant.name}"
+                } else {
+                    "Belum Terhubung"
+                },
+                summary = if (claiming) {
+                    "Memverifikasi perangkat & kode pairing…"
+                } else if (session != null) {
+                    "Perangkat aktif: ${session!!.device.name}"
+                } else {
+                    "Buka Dashboard Web Aulaa → Pengaturan Akun → Aulaa Keyboard"
+                },
+                onClick = {
+                    if (session == null && !claiming) {
+                        openQrScanner()
+                    }
+                },
+            )
+            Preference(
+                shapes = ListItemDefaults.segmentedShapes(1, count),
+                icon = Icons.Default.QrCodeScanner,
+                title = "Scan QR Code Pairing",
+                summary = "Pindai barcode pairing langsung dari layar Dashboard Web Aulaa",
+                onClick = {
+                    if (!claiming) openQrScanner()
+                },
+            )
+            Preference(
+                shapes = ListItemDefaults.segmentedShapes(2, count),
+                icon = Icons.Outlined.Keyboard,
+                title = "Masukkan Kode Pairing",
+                summary = "Ketik kode 8 karakter secara manual (mis. ABCD-EFGH)",
+                onClick = {
+                    if (!claiming) showManualCodeDialog = true
+                },
+            )
+            Preference(
+                shapes = ListItemDefaults.segmentedShapes(3, count),
+                icon = Icons.Outlined.Smartphone,
+                title = "Nama Perangkat",
+                summary = session?.device?.name ?: deviceNameInput,
+                onClick = {
+                    showDeviceNameDialog = true
+                },
+            )
         }
 
         if (session != null) {
-            PairedSessionCard(
-                session = session!!,
-                syncing = syncingProjects,
-                onSyncProjects = {
-                    syncingProjects = true
-                    statusMessage = null
-                    scope.launch {
-                        runCatching { api.listProjects() }
-                            .onSuccess { list ->
-                                syncingProjects = false
-                                isError = false
-                                statusMessage = "Sinkronisasi berhasil (${list.size} project ditemukan)."
+            val currentSession = session!!
+            val projects = currentSession.projects
+
+            SegmentedListColumn(title = "Project Merchant (${projects.size})") {
+                val totalItems = projects.size + 2
+                projects.forEachIndexed { index, prj ->
+                    Preference(
+                        shapes = ListItemDefaults.segmentedShapes(index, totalItems),
+                        icon = Icons.Outlined.Storefront,
+                        title = prj.name,
+                        summary = "${if (prj.isProd) "Production" else "Sandbox"} · ${prj.status}",
+                        onClick = {},
+                    )
+                }
+                Preference(
+                    shapes = ListItemDefaults.segmentedShapes(projects.size, totalItems),
+                    icon = Icons.Default.Sync,
+                    title = if (syncingProjects) "Menyinkronkan…" else "Sinkronkan Project",
+                    summary = "Perbarui daftar project & produk dari server Aulaa",
+                    onClick = {
+                        if (!syncingProjects) {
+                            syncingProjects = true
+                            scope.launch {
+                                runCatching { api.listProjects() }
+                                    .onSuccess { list ->
+                                        syncingProjects = false
+                                        Toast.makeText(
+                                            context,
+                                            "Sinkronisasi berhasil (${list.size} project).",
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                    .onFailure { err ->
+                                        syncingProjects = false
+                                        Toast.makeText(
+                                            context,
+                                            err.message ?: "Gagal menyinkronkan project.",
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    }
                             }
-                            .onFailure { err ->
-                                syncingProjects = false
-                                isError = true
-                                statusMessage = err.message ?: "Gagal menyinkronkan project."
-                            }
-                    }
-                },
-                onUnpair = {
-                    pairingStore.clear()
-                    isError = false
-                    statusMessage = "Perangkat telah diputuskan dari akun merchant."
-                },
+                        }
+                    },
+                )
+                Preference(
+                    shapes = ListItemDefaults.segmentedShapes(projects.size + 1, totalItems),
+                    icon = Icons.Default.LinkOff,
+                    title = "Putuskan Perangkat",
+                    summary = "Hapus akses perangkat ini dari akun merchant",
+                    onClick = {
+                        showUnpairConfirmDialog = true
+                    },
+                )
+            }
+        }
+    }
+
+    if (showQrScanner) {
+        AulaaQrScannerDialog(
+            onDismiss = { showQrScanner = false },
+            onResult = { scannedRaw ->
+                showQrScanner = false
+                val extracted = extractCodeFromInput(scannedRaw)
+                codeInput = extracted
+                submitClaim(extracted)
+            },
+        )
+    }
+
+    if (showManualCodeDialog) {
+        var draftCode by remember { mutableStateOf(codeInput) }
+        JetPrefAlertDialog(
+            title = "Masukkan Kode Pairing",
+            confirmLabel = "Hubungkan",
+            onConfirm = {
+                showManualCodeDialog = false
+                codeInput = draftCode
+                submitClaim(draftCode)
+            },
+            dismissLabel = "Batal",
+            onDismiss = { showManualCodeDialog = false },
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    text = "Masukkan kode 8 karakter dari dialog \"Hubungkan Aulaa Keyboard\" di Dashboard Web Aulaa.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = draftCode,
+                    onValueChange = { draftCode = extractCodeFromInput(it) },
+                    placeholder = { Text("ABCD-EFGH") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(
+                        capitalization = KeyboardCapitalization.Characters,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+
+    if (showDeviceNameDialog) {
+        var draftName by remember { mutableStateOf(deviceNameInput) }
+        JetPrefAlertDialog(
+            title = "Nama Perangkat",
+            confirmLabel = "Simpan",
+            onConfirm = {
+                deviceNameInput = draftName.trim().take(100).ifBlank { defaultDeviceName() }
+                showDeviceNameDialog = false
+            },
+            dismissLabel = "Batal",
+            onDismiss = { showDeviceNameDialog = false },
+        ) {
+            OutlinedTextField(
+                value = draftName,
+                onValueChange = { draftName = it.take(100) },
+                placeholder = { Text("mis. Pixel 8 Pro") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
 
-        // Claim Pairing Card
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(p.card, RoundedCornerShape(AulaaTheme.radiusLg))
-                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radiusLg))
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+    if (showUnpairConfirmDialog) {
+        JetPrefAlertDialog(
+            title = "Putuskan Perangkat?",
+            confirmLabel = "Putuskan",
+            onConfirm = {
+                showUnpairConfirmDialog = false
+                pairingStore.clear()
+                Toast.makeText(
+                    context,
+                    "Perangkat telah diputuskan dari akun merchant.",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            },
+            dismissLabel = "Batal",
+            onDismiss = { showUnpairConfirmDialog = false },
         ) {
             Text(
-                text = if (session == null) "Hubungkan Perangkat Baru" else "Ganti / Hubungkan Ulang Perangkat",
-                color = p.foreground,
-                fontSize = 14.5.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Text(
-                text = "1. Buka Dashboard Web Aulaa → Pengaturan Akun → Perangkat Keyboard.\n" +
-                    "2. Klik \"Tambah Perangkat\" untuk mendapatkan kode 8 karakter atau scan QR.\n" +
-                    "3. Masukkan kode di bawah sebelum kedaluwarsa (3 menit).",
-                color = p.mutedForeground,
-                fontSize = 12.sp,
-                lineHeight = 17.sp,
-            )
-
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                FieldLabel("KODE PAIRING (8 KARAKTER ATAU URI QR)")
-                PairingTextField(
-                    value = codeInput,
-                    onValueChange = { codeInput = extractCodeFromInput(it) },
-                    placeholder = "ABCD-EFGH",
-                    capitalization = KeyboardCapitalization.Characters,
-                )
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                FieldLabel("NAMA PERANGKAT (MAKS 100 KARAKTER)")
-                PairingTextField(
-                    value = deviceNameInput,
-                    onValueChange = { deviceNameInput = it.take(100) },
-                    placeholder = "mis. Pixel 8 Pro",
-                )
-            }
-
-            val canClaim = !claiming && codeInput.isNotBlank() && deviceNameInput.isNotBlank()
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .background(
-                        if (canClaim) Brush.linearGradient(listOf(p.brandMid, p.brandDeep))
-                        else SolidColor(p.muted),
-                        RoundedCornerShape(AulaaTheme.radius),
-                    )
-                    .clickable(enabled = canClaim) { submitClaim(codeInput) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (claiming) "Memverifikasi perangkat & kode…" else "Klaim & Hubungkan Perangkat",
-                    color = if (canClaim) p.onBrand else p.mutedForeground,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            Text(
-                text = "Perangkat keyboard hanya bisa membuat link pembayaran serta melihat project, produk, dan status transaksinya — tidak bisa menarik dana atau mengubah pengaturan.",
-                color = p.mutedForeground,
-                fontSize = 11.5.sp,
-                lineHeight = 16.sp,
+                text = "Keyboard di perangkat ini tidak bisa lagi membuat link pembayaran sampai dihubungkan ulang dengan Dashboard Web Aulaa.",
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
-    }
-}
-
-@Composable
-private fun PairedSessionCard(
-    session: PairingSession,
-    syncing: Boolean,
-    onSyncProjects: () -> Unit,
-    onUnpair: () -> Unit,
-) {
-    val p = AulaaTheme.palette
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(p.card, RoundedCornerShape(AulaaTheme.radiusLg))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radiusLg))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).background(p.brandMid, RoundedCornerShape(999.dp)))
-            Spacer(Modifier.width(8.dp))
-            Text(
-                "Perangkat Aktif",
-                color = p.foreground,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            Spacer(Modifier.weight(1f))
-            Text(
-                session.device.name,
-                color = p.mutedForeground,
-                fontSize = 12.sp,
-            )
-        }
-
-        InfoRow("Merchant", session.merchant.name)
-        InfoRow("Checkout URL", session.payBaseUrl)
-        InfoRow("Scopes Token", session.scopes.joinToString(", "))
-
-        Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            FieldLabel("PROJECT TERDAFTAR (${session.projects.size})")
-            if (session.projects.isEmpty()) {
-                Text(
-                    "Belum ada project di-cache. Tekan Sinkronkan Project.",
-                    color = p.mutedForeground,
-                    fontSize = 12.sp,
-                )
-            } else {
-                session.projects.forEach { prj ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(p.background, RoundedCornerShape(8.dp))
-                            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
-                            .padding(horizontal = 10.dp, vertical = 7.dp),
-                    ) {
-                        Text(
-                            prj.name,
-                            color = p.foreground,
-                            fontSize = 13.sp,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = "${if (prj.isProd) "PROD" else "DEV"} · ${prj.status}",
-                            color = p.mutedForeground,
-                            fontSize = 11.sp,
-                        )
-                    }
-                }
-            }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(38.dp)
-                    .background(p.brandTint, RoundedCornerShape(AulaaTheme.radius))
-                    .border(BorderStroke(1.dp, p.brandMid), RoundedCornerShape(AulaaTheme.radius))
-                    .clickable(enabled = !syncing) { onSyncProjects() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (syncing) "Menyinkronkan…" else "Sinkronkan Project",
-                    color = p.brandDeep,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .height(38.dp)
-                    .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-                    .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
-                    .clickable { onUnpair() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "Putuskan Perangkat",
-                    color = p.foreground,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun InfoRow(label: String, value: String) {
-    val p = AulaaTheme.palette
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(label, color = p.mutedForeground, fontSize = 12.sp)
-        Spacer(Modifier.width(12.dp))
-        Text(
-            value,
-            color = p.foreground,
-            fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
-private fun FieldLabel(text: String) {
-    Text(
-        text,
-        color = AulaaTheme.palette.mutedForeground,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Medium,
-    )
-}
-
-@Composable
-private fun PairingTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    placeholder: String,
-    capitalization: KeyboardCapitalization = KeyboardCapitalization.None,
-) {
-    val p = AulaaTheme.palette
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(42.dp)
-            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
-            .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        if (value.isEmpty()) {
-            Text(
-                placeholder,
-                color = p.mutedForeground,
-                fontSize = 13.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            singleLine = true,
-            textStyle = TextStyle(color = p.foreground, fontSize = 13.5.sp),
-            cursorBrush = SolidColor(p.brandDeep),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                capitalization = capitalization,
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
 /**
- * Extracts the pairing code if the user pastes `aulaa-keyboard://pair?code=ABCDEFGH`
+ * Extracts the pairing code if the user scans or pastes `aulaa-keyboard://pair?code=ABCDEFGH`
  * or returns the raw code otherwise.
  */
 fun extractCodeFromInput(raw: String): String {

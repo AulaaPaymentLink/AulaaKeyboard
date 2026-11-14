@@ -8,6 +8,10 @@
     <!-- Permission needed to call the Aulaa merchant API over HTTPS -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- Permission needed to scan the Aulaa pairing QR code from the web dashboard -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+
     <!-- Permission needed to create notifications on devices running Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 

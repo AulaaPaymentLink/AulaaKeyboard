@@ -28,6 +28,7 @@ mikepenz-aboutlibraries = "15.2.0"
 okio = "3.18.2"
 patrickgold-compose-tooltip = "0.2.0-rc02"
 patrickgold-jetpref = "0.5.0-beta01"
+zxing-core = "3.5.3"
 
 # Testing
 androidx-benchmark = "1.4.1"
@@ -82,6 +83,7 @@ patrickgold-jetpref-datastore-model = { module = "dev.patrickgold.jetpref:jetpre
 patrickgold-jetpref-datastore-model-processor = { module = "dev.patrickgold.jetpref:jetpref-datastore-model-processor", version.ref = "patrickgold-jetpref" }
 patrickgold-jetpref-datastore-ui = { module = "dev.patrickgold.jetpref:jetpref-datastore-ui", version.ref = "patrickgold-jetpref" }
 patrickgold-jetpref-material-ui = { module = "dev.patrickgold.jetpref:jetpref-material-ui", version.ref = "patrickgold-jetpref" }
+zxing-core = { module = "com.google.zxing:core", version.ref = "zxing-core" }
 
 # Testing
 androidx-benchmark-macro = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "androidx-benchmark" }

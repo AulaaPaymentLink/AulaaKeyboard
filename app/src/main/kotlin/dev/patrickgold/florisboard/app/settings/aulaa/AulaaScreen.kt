@@ -10,10 +10,8 @@
 
 package dev.patrickgold.florisboard.app.settings.aulaa
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import co.aulaa.keyboard.payment.theme.AulaaTheme
 import co.aulaa.keyboard.payment.ui.AulaaPairingContent
 import dev.patrickgold.florisboard.app.components.FlorisScreenNg
 import dev.patrickgold.florisboard.app.components.ScrollableScreenColumn
@@ -25,21 +23,17 @@ fun AulaaScreen(initialPairingCode: String? = null) {
     val context = LocalContext.current
     val api by context.aulaaApi()
     val pairingStore by context.aulaaPairingStore()
-    val isDark = isSystemInDarkTheme()
 
     FlorisScreenNg(
         title = "Aulaa Payment Link",
         previewFieldVisible = true,
     ) { contentPadding ->
         ScrollableScreenColumn(contentPadding) {
-            AulaaTheme(darkTheme = isDark) {
-                AulaaPairingContent(
-                    api = api,
-                    pairingStore = pairingStore,
-                    initialPairingCode = initialPairingCode,
-                )
-            }
+            AulaaPairingContent(
+                api = api,
+                pairingStore = pairingStore,
+                initialPairingCode = initialPairingCode,
+            )
         }
     }
 }
-
