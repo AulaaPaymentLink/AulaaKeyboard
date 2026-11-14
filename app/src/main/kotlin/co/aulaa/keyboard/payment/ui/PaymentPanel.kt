@@ -181,7 +181,7 @@ fun PaymentPanel(
 
     var projects by remember(session) { mutableStateOf(session?.projects.orEmpty()) }
     var selectedProject by remember(session) { mutableStateOf(session?.projects?.firstOrNull()) }
-    var amount by remember { mutableLongStateOf(0L) }
+    var amount by remember { mutableLongStateOf(150_000L) }
     var orderId by remember { mutableStateOf("") }
     var creating by remember { mutableStateOf(false) }
     var createdLink by remember { mutableStateOf<PaymentLink?>(null) }
@@ -772,6 +772,8 @@ private fun InlineOrderIdField(
 @Composable
 private fun NominalBox(
     amount: Long,
+    showNumpad: Boolean = false,
+    onToggleNumpad: (() -> Unit)? = null,
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -780,20 +782,24 @@ private fun NominalBox(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(40.dp)
+            .height(44.dp)
             .background(p.background, RoundedCornerShape(8.dp))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
+            .border(
+                BorderStroke(1.dp, if (showNumpad) p.brandMid else p.border),
+                RoundedCornerShape(8.dp),
+            )
+            .then(if (onToggleNumpad != null) Modifier.clickable { onToggleNumpad() } else Modifier)
             .padding(horizontal = 10.dp),
     ) {
-        Text("Rp ", color = p.mutedForeground, fontSize = 13.sp)
+        Text("Rp ", color = p.mutedForeground, fontSize = 13.5.sp)
         Text(
             text = if (amount > 0L) formatIdr(amount).removePrefix("Rp").trim() else "0",
             color = if (amount > 0L) p.foreground else p.mutedForeground,
-            fontSize = 19.sp,
+            fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
         )
-        if (amount > 0L) {
+        if (showNumpad && amount > 0L) {
             Text(
                 text = "Reset",
                 color = p.mutedForeground,
@@ -803,6 +809,15 @@ private fun NominalBox(
                     .border(BorderStroke(1.dp, p.border), RoundedCornerShape(5.dp))
                     .clickable { onReset() }
                     .padding(horizontal = 7.dp, vertical = 3.dp),
+            )
+            Spacer(Modifier.width(6.dp))
+        }
+        if (onToggleNumpad != null) {
+            Text(
+                text = if (showNumpad) "Selesai ▴" else "Ketik nominal ▾",
+                color = p.brandLight,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
             )
         }
     }
@@ -924,11 +939,12 @@ private fun TransaksiCompactLayout(
     creating: Boolean,
     onCreate: () -> Unit,
 ) {
-    var isPresetSelected by remember { mutableStateOf(false) }
+    var isPresetSelected by remember { mutableStateOf(true) }
+    var showNumpad by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         // Project + Invoice on the SAME compact row
         Row(
@@ -953,11 +969,25 @@ private fun TransaksiCompactLayout(
         if (!isEditingOrderId) {
             NominalBox(
                 amount = amount,
+                showNumpad = showNumpad,
+                onToggleNumpad = { showNumpad = !showNumpad },
                 onReset = {
                     isPresetSelected = false
                     onAmount(0L)
                 },
             )
+
+            if (showNumpad) {
+                SleekAmountNumpad(
+                    amount = amount,
+                    isPresetSelected = isPresetSelected,
+                    onAmountChange = { newAmount, fromPreset ->
+                        isPresetSelected = fromPreset
+                        onAmount(newAmount)
+                    },
+                    keyHeightDp = 30,
+                )
+            }
 
             QuickNominalChips(
                 amount = amount,
@@ -965,16 +995,6 @@ private fun TransaksiCompactLayout(
                     isPresetSelected = true
                     onAmount(preset)
                 },
-            )
-
-            SleekAmountNumpad(
-                amount = amount,
-                isPresetSelected = isPresetSelected,
-                onAmountChange = { newAmount, fromPreset ->
-                    isPresetSelected = fromPreset
-                    onAmount(newAmount)
-                },
-                keyHeightDp = 27,
             )
 
             PrimaryButton(
@@ -1065,6 +1085,7 @@ private fun TransaksiWideFoldableLayout(
 
             NominalBox(
                 amount = amount,
+                showNumpad = true,
                 onReset = {
                     isPresetSelected = false
                     onAmount(0L)
