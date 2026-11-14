@@ -157,12 +157,14 @@ fun AulaaPairingContent(
                     icon = Icons.Outlined.CheckCircle,
                     title = "Terhubung ke ${session!!.merchant.name}",
                     summary = "Akun merchant aktif",
+                    onClick = {},
                 )
                 Preference(
                     shapes = ListItemDefaults.segmentedShapes(1, count),
                     icon = Icons.Outlined.Smartphone,
                     title = "Nama Perangkat",
                     summary = session!!.device.name,
+                    onClick = {},
                 )
             } else {
                 Preference(
