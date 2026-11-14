@@ -246,7 +246,7 @@ private fun PaymentPanelMaterialContent(
             imeController.setEmitInterceptor { emitted ->
                 when (emitted) {
                     is K3String -> {
-                        val raw = emitted.raw
+                        val raw = emitted.toText()
                         if (raw != "\n" && raw != "\r") {
                             when (field) {
                                 ActiveTextField.OrderId -> {
