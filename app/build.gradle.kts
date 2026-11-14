@@ -63,7 +63,11 @@ configure<ApplicationExtension> {
     }
 
     defaultConfig {
-        applicationId = "dev.patrickgold.florisboard"
+        // Aulaa Keyboard: on-device app identity. The internal `namespace`
+        // (and the IME service's fully-qualified class) intentionally stays
+        // `dev.patrickgold.florisboard`, so no Kotlin package move is needed;
+        // provider authorities follow BuildConfig.APPLICATION_ID automatically.
+        applicationId = "co.aulaa.keyboard"
         minSdk = providers.gradleProperty("projectMinSdk").get().toInt()
         targetSdk = providers.gradleProperty("projectTargetSdk").get().toInt()
         versionCode = providers.gradleProperty("projectVersionCode").get().toInt()

@@ -1,158 +1,243 @@
-<img align="left" width="80" height="80"
-src=".github/repo_icon.png" alt="App icon">
+<div align="center">
 
-# FlorisBoard [![Crowdin](https://badges.crowdin.net/florisboard/localized.svg)](https://crowdin.florisboard.org) [![Matrix badge](https://img.shields.io/badge/chat-%23florisboard%3amatrix.org-blue)](https://matrix.to/#/#florisboard:matrix.org) [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md) [![FlorisBoard CI](https://github.com/florisboard/florisboard/actions/workflows/android.yml/badge.svg?event=push)](https://github.com/florisboard/florisboard/actions/workflows/android.yml)
+# Aulaa Keyboard
 
-**FlorisBoard** is a free and open-source keyboard for Android 8.0+
-devices. It aims at being modern, user-friendly and customizable while
-fully respecting your privacy. Currently in beta state.
+**An open-source Android keyboard that lets merchants create and send an Aulaa
+payment link without ever leaving the chat.**
 
-<table>
-<tr>
-<th style="text-align: center; width: 50%">
-<h3>Stable <a href="https://github.com/florisboard/florisboard/releases/latest"><img alt="Latest stable release" src="https://img.shields.io/github/v/release/florisboard/florisboard?sort=semver&display_name=tag&color=28a745"></a></h3>
-</th>
-<th style="text-align: center; width: 50%">
-<h3>Preview <a href="https://github.com/florisboard/florisboard/releases"><img alt="Latest preview release" src="https://img.shields.io/github/v/release/florisboard/florisboard?include_prereleases&sort=semver&display_name=tag&color=fd7e14"></a></h3>
-</th>
-</tr>
-<tr>
-<td style="vertical-align: top">
-<p><i>Major versions only</i><br><br>Updates are more polished, new features are matured and tested through to ensure a stable experience.</p>
-</td>
-<td style="vertical-align: top">
-<p><i>Major + Alpha/Beta/Rc versions</i><br><br>Updates contain new features that may not be fully matured yet and bugs are more likely to occur. Allows you to give early feedback.</p>
-</td>
-</tr>
-<tr>
-<td style="vertical-align: top">
-<p>
-<a href="https://apt.izzysoft.de/fdroid/index/apk/dev.patrickgold.florisboard"><img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="64" alt="IzzySoft repo badge"></a>
-<a href="https://f-droid.org/packages/dev.patrickgold.florisboard"><img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" height="64" alt="F-Droid badge"></a>
-</p>
-<p>
+Think "myBCA keyboard", but for [Aulaa](https://aulaa.co) — and with the clean,
+neutral look of the Aulaa merchant dashboard.
 
-**Google Play**: Join the [FlorisBoard Test Group](https://groups.google.com/g/florisboard-closed-beta-test), then visit the [testing page](https://play.google.com/apps/testing/dev.patrickgold.florisboard). Once joined and installed, updates will be delivered like for any other app. ([Store entry](https://play.google.com/store/apps/details?id=dev.patrickgold.florisboard))
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Fork of FlorisBoard](https://img.shields.io/badge/fork-FlorisBoard-informational.svg)](https://github.com/florisboard/florisboard)
+[![minSdk](https://img.shields.io/badge/minSdk-26%20(Android%208)-brightgreen.svg)](#build--run)
+[![Status](https://img.shields.io/badge/status-alpha%20scaffold-orange.svg)](#project-status)
 
-</p>
-<p>
+</div>
 
-**Obtainium**: [Auto-import stable config][obtainium_stable]
+---
 
-</p>
-<p>
+## Table of contents
 
-**Manual**: Download and install the APK from the release page.
+- [What it is](#what-it-is)
+- [Why a keyboard?](#why-a-keyboard)
+- [Features](#features)
+- [Security model](#security-model)
+- [Why open source](#why-open-source)
+- [How it works](#how-it-works)
+- [Design system](#design-system)
+- [Project structure](#project-structure)
+- [Build & run](#build--run)
+- [Project status](#project-status)
+- [Relationship to FlorisBoard](#relationship-to-florisboard)
+- [Contributing](#contributing)
+- [License & trademark](#license--trademark)
+- [Acknowledgements](#acknowledgements)
 
-</p>
-</td>
-<td style="vertical-align: top">
-<p><a href="https://apt.izzysoft.de/fdroid/index/apk/dev.patrickgold.florisboard.beta"><img src="https://gitlab.com/IzzyOnDroid/repo/-/raw/master/assets/IzzyOnDroid.png" height="64" alt="IzzySoft repo badge"></a></p>
-<p>
+---
 
-**Google Play**: Join the [FlorisBoard Test Group](https://groups.google.com/g/florisboard-closed-beta-test), then visit the [preview testing page](https://play.google.com/apps/testing/dev.patrickgold.florisboard.beta). Once joined and installed, updates will be delivered like for any other app. ([Store entry](https://play.google.com/store/apps/details?id=dev.patrickgold.florisboard.beta))
+## What it is
 
-</p>
-<p>
+Aulaa Keyboard is a system keyboard (IME) for Android. On top of the normal
+typing experience it adds an **Aulaa panel** — opened from a brand key on the
+keyboard, exactly like the media/sticker panels you already know. From that panel
+a merchant can generate an Aulaa payment link and drop it straight into whatever
+chat they're in (WhatsApp, Instagram DM, Telegram, …), without switching apps or
+opening the web dashboard.
 
-**Obtainium**: [Auto-import preview config][obtainium_preview]
+It is a friendly fork of [FlorisBoard](https://github.com/florisboard/florisboard)
+(Apache-2.0), so it inherits a mature, privacy-respecting typing engine and adds
+the Aulaa payment flow and branding on top.
 
-</p>
-<p>
+## Why a keyboard?
 
-**Manual**: Download and install the APK from the release page.
+Merchants spend their day answering customers in chat apps. Asking them to stop,
+switch to a dashboard, create a payment link, copy it, switch back, and paste —
+for every order — is friction that costs sales. Putting "create a payment link"
+*inside the keyboard* removes every one of those steps: the merchant stays in the
+conversation and the link appears in the message box.
 
-</p>
-</td>
-</tr>
-</table>
+## Features
 
-Beginning with v0.7 FlorisBoard will enter the public beta on Google Play.
+From the Aulaa panel:
 
-## Highlighted features
-- Integrated clipboard manager / history
-- Advanced theming support and customization
-- Integrated extension support (still evolving)
-- Emoji keyboard / history / suggestions
+- **Transaksi (one-off link).** Enter a nominal, optionally an Order ID (your own
+  reference — auto-generated if left blank), pick a project, and tap **Buat Link
+  Pembayaran**. You get a `payment.aulaa.co/pay/…` link ready to paste. The
+  customer chooses their own payment method (QRIS, virtual account, e-wallet) on
+  the Aulaa payment page.
+- **Produk (product link).** Browse your existing products and send a product's
+  `payment.aulaa.co/buy/…` link. (Creating new products stays in the web
+  dashboard — the keyboard only lists them.)
+- **Paste into chat.** The finished link is committed directly into the active
+  text field via the IME.
+- **Light & dark**, following the system theme, with the dashboard's exact palette
+  and typography.
 
-> [!IMPORTANT]
-> Word suggestions/spell checking are not included in the current releases
-> and are a major goal for the v0.6 milestone.
+> Screenshots will be added under `docs/` once the IME wiring is built. A visual
+> design preview of the panel exists (HTML mock) and the Compose UI mirrors it.
 
-Feature roadmap: See [ROADMAP.md](ROADMAP.md)
+## Security model
+
+A keyboard is an always-present, sensitive surface, so Aulaa Keyboard is built to
+hold **as little power as possible**:
+
+- **Scoped device token, not a full session.** The keyboard authenticates with a
+  token that can *only* create transaction links, list projects/products, and read
+  a transaction's status. It **cannot** request payouts, change bank details, or
+  touch account settings. Worst case if a device is lost or compromised: an
+  attacker can create payment links that collect money **into the merchant's own
+  account** — not theirs.
+- **Pairing, not passwords.** You never type your merchant password into the
+  keyboard. Instead you pair the device from the Aulaa web dashboard
+  (**Account Settings → Keyboard devices**): the dashboard shows a short-lived
+  code/QR, the companion app claims it, and the backend issues the scoped token.
+- **No secrets in the app.** Because this app is open source, nothing sensitive is
+  compiled into it — the token is obtained at runtime via pairing and stored in
+  Android's `EncryptedSharedPreferences`.
+- **Revocable & auditable.** Every paired device is listed in the dashboard with a
+  last-used time and can be revoked individually.
+
+## Why open source
+
+A keyboard can read everything you type. The only way to *prove* it isn't quietly
+logging or exfiltrating keystrokes is to let anyone read the code and inspect the
+network traffic. For a payment-adjacent tool, that transparency is the whole point.
+
+Aulaa Keyboard talks only to Aulaa's documented API over TLS, carries no hidden
+telemetry, and bakes in no secrets. See [`FORK.md`](FORK.md) for provenance.
+
+## How it works
+
+```
+┌─────────────────────────────┐        ┌──────────────────────────┐
+│  Aulaa Keyboard (this app)   │        │  Aulaa backend (api-server)│
+│                              │        │                          │
+│  IME ── Aulaa panel          │        │  POST /v1/transactions   │
+│   │      • Transaksi         │  HTTPS │  GET  /v1/projects       │
+│   │      • Produk            │ ─────► │  GET  /v1/products       │
+│   │        (Bearer: scoped   │        │  GET  /v1/transactions/… │
+│   │         device token)    │        │                          │
+│   └─ commitText(link) ─► chat│        │  POST /v1/keyboard/      │
+│                              │        │        pairing/claim     │
+│  Companion Activity          │        │  (scoped token issued)   │
+│   • pair via QR / code       │        └──────────────────────────┘
+│   • EncryptedSharedPreferences│
+└─────────────────────────────┘
+```
+
+The payment feature is intentionally **self-contained** (`co.aulaa.keyboard.payment`)
+and does not import FlorisBoard internals; it connects through four small seams
+documented in
+[`app/src/main/kotlin/co/aulaa/keyboard/payment/INTEGRATION.md`](app/src/main/kotlin/co/aulaa/keyboard/payment/INTEGRATION.md):
+
+1. show the panel from the Smartbar,
+2. commit the link to the editor,
+3. provide a real `AulaaApi` (OkHttp) carrying the scoped token,
+4. pairing + token storage.
+
+The backend pieces (pairing endpoints + scoped-token middleware + the dashboard
+"Keyboard devices" screen) live in the main Aulaa repository, not here.
+
+## Design system
+
+Colors, typography, radius and dark/light behavior are taken **directly from the
+Aulaa tenant-dashboard** design tokens:
+
+- shadcn **neutral** base (grayscale `oklch` surfaces), mapped to sRGB in
+  [`AulaaColor.kt`](app/src/main/kotlin/co/aulaa/keyboard/payment/theme/AulaaColor.kt)
+  with each source `oklch` token noted;
+- **Aulaa brand blue** (`#2183B9 → #43BAE8`) reserved for the brand mark and
+  primary actions only;
+- **Geist** type, weights capped at medium (no bold), 10dp corner radius;
+- full **light & dark** palettes in
+  [`AulaaTheme.kt`](app/src/main/kotlin/co/aulaa/keyboard/payment/theme/AulaaTheme.kt).
+
+## Project structure
+
+```
+.
+├── app/                        # the keyboard app (FlorisBoard base + Aulaa)
+│   └── src/main/kotlin/
+│       ├── dev/patrickgold/florisboard/   # upstream IME engine (namespace kept)
+│       └── co/aulaa/keyboard/payment/      # ← Aulaa feature (self-contained)
+│           ├── theme/   AulaaColor.kt, AulaaTheme.kt
+│           ├── data/    AulaaPayment.kt    (AulaaApi, PairingStore, DTOs, stub)
+│           ├── ui/      PaymentPanel.kt    (Compose panel)
+│           └── INTEGRATION.md              (the 4 wiring seams)
+├── lib/, libnative/, benchmark/   # upstream modules
+├── brand/                      # Aulaa brand assets (trademarked)
+├── FORK.md                     # fork provenance & upstream remote
+├── NOTICE                      # attribution (Apache-2.0)
+├── TRADEMARK.md                # brand terms
+├── README-FLORISBOARD.md       # the original upstream README
+└── LICENSE                     # Apache License 2.0
+```
+
+The internal `applicationId` is `co.aulaa.keyboard`; the Kotlin `namespace` and the
+IME service class intentionally stay `dev.patrickgold.florisboard` so no package
+rename was needed.
+
+## Build & run
+
+Standard FlorisBoard toolchain:
+
+- **JDK 11+** and the **Android SDK** (compileSdk 37, minSdk 26 / Android 8).
+- Open the project in **Android Studio** and run the `app` module, or:
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+Then enable "Aulaa Keyboard" in **System Settings → Language & input** and select
+it from the input switcher.
+
+> **Heads-up:** the Aulaa additions were scaffolded on a machine without a
+> JDK/Android SDK, so they have **not been compiled yet**. Build and verify in
+> Android Studio before relying on them.
+
+## Project status
+
+| Area | State |
+|------|-------|
+| Fork + rebrand (applicationId, app name, project name) | ✅ done |
+| Aulaa Compose theme from dashboard tokens (light/dark) | ✅ done |
+| Payment panel UI (Compose, self-contained, stub API) | ✅ done |
+| IME wiring — Smartbar action + editor commit | ⏳ TODO ([INTEGRATION.md](app/src/main/kotlin/co/aulaa/keyboard/payment/INTEGRATION.md)) |
+| Real API (OkHttp) + pairing + EncryptedSharedPreferences | ⏳ TODO — needs backend pairing endpoints |
+| Companion-app pairing screen (scan QR / enter code) | ⏳ TODO |
+| Backend: pairing + scoped device token | ↗ separate work in the main Aulaa repo |
+
+## Relationship to FlorisBoard
+
+Aulaa Keyboard is forked from FlorisBoard at commit `bac346e8` (base
+`v0.6.0-alpha02`). Upstream git history is preserved and the `upstream` git remote
+points at FlorisBoard, so changes can be diffed against or pulled from upstream:
+
+```bash
+git remote add upstream https://github.com/florisboard/florisboard.git  # already set
+git fetch upstream
+git diff upstream/main -- <path>
+```
+
+Details in [`FORK.md`](FORK.md).
 
 ## Contributing
-Want to contribute to FlorisBoard? That's great to hear! There are lots of
-different ways to help out, please see the [contribution guidelines](CONTRIBUTING.md) for more info.
 
-## Addons Store
-The official [Addons Store](https://beta.addons.florisboard.org) offers the possibility for the community to share and download FlorisBoard extensions.
-Instructions on how to publish addons can be found [here](https://docs.florisboard.org/publishing).
+Issues and pull requests are welcome. Please keep Aulaa-specific code under
+`co.aulaa.keyboard.*` and keep it free of secrets — this is a public repository and
+the app must remain auditable. Changes that touch the upstream engine should stay
+close to FlorisBoard's conventions so upstream can still be merged.
 
-Many thanks to Ali ([@4H1R](https://github.com/4H1R)) for implementing the store!
+## License & trademark
 
-> [!NOTE]
-> During the initial beta release phase, the Addons Store _will_ only accept theme extensions.
-> Later on we plan to add support for language packs and keyboard extensions.
+- **Code** is licensed under the **Apache License 2.0** — see [`LICENSE`](LICENSE)
+  and [`NOTICE`](NOTICE).
+- The **"Aulaa" name, logo and brand assets** are trademarks of Aulaa and are *not*
+  covered by the code license. You may fork and redistribute the code, but a
+  redistributed build must be renamed and rebranded — see [`TRADEMARK.md`](TRADEMARK.md).
 
-## List of permissions FlorisBoard requests
-Please refer to this [page](https://docs.florisboard.org/permissions)
-to get more information on this topic.
+## Acknowledgements
 
-## APK signing certificate hashes
-
-The package names and SHA-256 hashes of the signature certificate are listed below, so you can verify both FlorisBoard variants with apksigner by using `apksigner verify --print-certs florisboard-<version>-<track>.apk` when you download the APK.
-If you have [AppVerifier](https://github.com/soupslurpr/AppVerifier) installed, you can alternatively copy both the package name and the hash of the corresponding track and share them to AppVerifier.
-
-##### Stable track:
-
-dev.patrickgold.florisboard<br>
-0B:80:71:64:50:8E:AF:EB:1F:BB:81:5B:E7:A2:3C:77:FE:68:9D:94:B1:43:75:C9:9B:DA:A9:B6:57:7F:D6:D6
-
-##### Preview track:
-
-dev.patrickgold.florisboard.beta<br>
-0B:80:71:64:50:8E:AF:EB:1F:BB:81:5B:E7:A2:3C:77:FE:68:9D:94:B1:43:75:C9:9B:DA:A9:B6:57:7F:D6:D6
-
-
-## Used libraries, components and icons
-* [AndroidX libraries](https://github.com/androidx/androidx) by
-  [Android Jetpack](https://github.com/androidx)
-* [AboutLibraries](https://github.com/mikepenz/AboutLibraries) by
-  [mikepenz](https://github.com/mikepenz)
-* [Google Material icons](https://github.com/google/material-design-icons) by
-  [Google](https://github.com/google)
-* [JetPref preference library](https://github.com/patrickgold/jetpref) by
-  [patrickgold](https://github.com/patrickgold)
-* [KotlinX coroutines library](https://github.com/Kotlin/kotlinx.coroutines) by
-  [Kotlin](https://github.com/Kotlin)
-* [KotlinX serialization library](https://github.com/Kotlin/kotlinx.serialization) by
-  [Kotlin](https://github.com/Kotlin)
-
-Many thanks to [Nikolay Anzarov](https://www.behance.net/nikolayanzarov) ([@BloodRaven0](https://github.com/BloodRaven0)) for designing and providing the main app icons to this project!
-
-## License
-```
-Copyright 2020-2026 The FlorisBoard Contributors
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-```
-
-Thanks to [The FlorisBoard Contributors](https://github.com/florisboard/florisboard/graphs/contributors) for making this project possible!
-
-<!-- BEGIN SECTION: obtainium_links -->
-<!-- auto-generated link templates, do NOT edit by hand -->
-<!-- see fastlane/update-readme.sh -->
-[obtainium_preview]: https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://app/%7B%22id%22%3A%22dev.patrickgold.florisboard.beta%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fflorisboard%2Fflorisboard%22%2C%22author%22%3A%22florisboard%22%2C%22name%22%3A%22FlorisBoard%20Preview%22%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Atrue%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22preview%5C%22%7D%22%7D%0A
-[obtainium_stable]: https://apps.obtainium.imranr.dev/redirect.html?r=obtainium://app/%7B%22id%22%3A%22dev.patrickgold.florisboard%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fflorisboard%2Fflorisboard%22%2C%22author%22%3A%22florisboard%22%2C%22name%22%3A%22FlorisBoard%20Stable%22%2C%22additionalSettings%22%3A%22%7B%5C%22includePrereleases%5C%22%3Afalse%2C%5C%22fallbackToOlderReleases%5C%22%3Atrue%2C%5C%22apkFilterRegEx%5C%22%3A%5C%22stable%5C%22%7D%22%7D%0A
-<!-- END SECTION: obtainium_links -->
+Built on the excellent work of [FlorisBoard](https://github.com/florisboard/florisboard)
+and its contributors. Thank you. 💙
