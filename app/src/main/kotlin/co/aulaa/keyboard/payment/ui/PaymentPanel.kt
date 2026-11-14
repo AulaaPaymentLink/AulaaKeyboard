@@ -10,18 +10,18 @@
 
 package co.aulaa.keyboard.payment.ui
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -36,39 +36,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Backspace
-import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.QrCode2
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -83,10 +51,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -110,7 +79,7 @@ import org.k3lp.lib.text.K3String
 
 private enum class Tab(val label: String) {
     Transaksi("Buat Transaksi"),
-    Produk("Katalog Produk"),
+    Produk("Produk"),
 }
 
 private enum class Screen { Form, Ready }
@@ -125,40 +94,6 @@ private val quickNominals = listOf(50_000L, 100_000L, 150_000L, 200_000L, 500_00
 private val LiveDotColor = Color(0xFF2196F3)
 private val SandboxDotColor = Color(0xFFEF4444)
 
-private val AulaaLightColorScheme = lightColorScheme(
-    primary = Color(0xFF1565C0),
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFD6E4FF),
-    onPrimaryContainer = Color(0xFF001B3D),
-    secondary = Color(0xFF1A7EC2),
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE1F0FF),
-    onSecondaryContainer = Color(0xFF001E31),
-    surface = Color(0xFFF8FAFC),
-    onSurface = Color(0xFF0F172A),
-    surfaceVariant = Color(0xFFEFF4F9),
-    onSurfaceVariant = Color(0xFF475569),
-    outline = Color(0xFFCBD5E1),
-    outlineVariant = Color(0xFFE2E8F0),
-)
-
-private val AulaaDarkColorScheme = darkColorScheme(
-    primary = Color(0xFF64B5F6),
-    onPrimary = Color(0xFF003060),
-    primaryContainer = Color(0xFF0D47A1),
-    onPrimaryContainer = Color(0xFFD6E4FF),
-    secondary = Color(0xFF43BAE8),
-    onSecondary = Color(0xFF003549),
-    secondaryContainer = Color(0xFF1E293B),
-    onSecondaryContainer = Color(0xFFE2E8F0),
-    surface = Color(0xFF111827),
-    onSurface = Color(0xFFF1F5F9),
-    surfaceVariant = Color(0xFF1E293B),
-    onSurfaceVariant = Color(0xFF94A3B8),
-    outline = Color(0xFF334155),
-    outlineVariant = Color(0xFF1E293B),
-)
-
 /**
  * Formats project display name according to environment:
  * - Live (`isProd == true`): `Project Name` (paired with blue dot)
@@ -172,7 +107,7 @@ internal fun Project.displayLabel(): String {
 fun ProjectEnvironmentDot(isProd: Boolean, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
-            .size(8.dp)
+            .size(7.dp)
             .clip(CircleShape)
             .background(if (isProd) LiveDotColor else SandboxDotColor),
     )
@@ -187,30 +122,7 @@ fun PaymentPanel(
     pairingStore: PairingStore? = null,
     onOpenPairing: (() -> Unit)? = null,
 ) {
-    val isDark = AulaaTheme.palette.card.red < 0.3f
-    val colorScheme = if (isDark) AulaaDarkColorScheme else AulaaLightColorScheme
-
-    MaterialTheme(colorScheme = colorScheme) {
-        PaymentPanelMaterialContent(
-            api = api,
-            onCommitText = onCommitText,
-            onClose = onClose,
-            modifier = modifier,
-            pairingStore = pairingStore,
-            onOpenPairing = onOpenPairing,
-        )
-    }
-}
-
-@Composable
-private fun PaymentPanelMaterialContent(
-    api: AulaaApi,
-    onCommitText: (String) -> Unit,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier,
-    pairingStore: PairingStore? = null,
-    onOpenPairing: (() -> Unit)? = null,
-) {
+    val p = AulaaTheme.palette
     val scope = rememberCoroutineScope()
     val imeController = LocalImeController.current
 
@@ -239,7 +151,7 @@ private fun PaymentPanelMaterialContent(
     val currentOrderId by rememberUpdatedState(orderId)
     val currentSearch by rememberUpdatedState(search)
 
-    // Route keyboard key presses directly into Order ID or Product Search when active!
+    // Route keyboard key presses directly into Order ID or Product Search when active
     DisposableEffect(imeController, activeTextField) {
         val field = activeTextField
         if (field != null) {
@@ -250,7 +162,6 @@ private fun PaymentPanelMaterialContent(
                         if (raw != "\n" && raw != "\r") {
                             when (field) {
                                 ActiveTextField.OrderId -> {
-                                    // Order ID only allows alphanumeric, '-', '_', '.' up to 64 chars
                                     val filtered = raw.filter {
                                         it.isLetterOrDigit() || it == '-' || it == '_' || it == '.'
                                     }
@@ -260,7 +171,6 @@ private fun PaymentPanelMaterialContent(
                                     search = (currentSearch + raw).take(80)
                                 }
                             }
-                            // Auto-unshift after typing a character if shift was one-shot
                             val shift = imeController.snapshotState().flags.inputShiftState
                             if (shift == InputShiftState.SHIFTED_MANUAL || shift == InputShiftState.SHIFTED_AUTOMATIC) {
                                 scope.launch {
@@ -407,6 +317,7 @@ private fun PaymentPanelMaterialContent(
             errorMessage = "Masukkan nominal pembayaran terlebih dahulu."
             return
         }
+        activeTextField = null
         creating = true
         errorMessage = null
         scope.launch {
@@ -455,161 +366,94 @@ private fun PaymentPanelMaterialContent(
         }
     }
 
-    // When user is actively typing Order ID or Product Search, show the inline keyboard mode
-    if (activeTextField != null) {
-        InlineKeyboardInputView(
-            activeField = activeTextField!!,
-            orderId = orderId,
-            search = search,
-            products = products,
-            loadingProducts = loadingData,
-            onClear = {
-                when (activeTextField!!) {
-                    ActiveTextField.OrderId -> orderId = ""
-                    ActiveTextField.ProductSearch -> search = ""
-                }
-            },
-            onSendProduct = { prod ->
-                activeTextField = null
-                onCommitText(prod.buyUrl)
-                onClose()
-            },
-            onDone = { activeTextField = null },
-        )
-        return
-    }
-
-    Surface(
-        modifier = modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 2.dp,
-        shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp),
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(p.card, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .padding(top = 10.dp),
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp),
         ) {
             val isWideScreen = maxWidth >= 540.dp
 
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp),
             ) {
-                // ---- Top Bar: Brand, Project Dropdown (on wide screen) or Merchant Info, Refresh, Close ----
+                // ---- Header: Clean Aulaa.co look ----
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     AulaaBrandMark(size = 24.dp, showContainer = false)
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "Aulaa Payment",
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface,
-                            )
-                            if (session != null && isPaired && !tokenRevoked) {
-                                Text(
-                                    text = " · ${session.merchant.name}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                        }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Aulaa",
+                        color = p.foreground,
+                        fontSize = 14.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    if (session != null && isPaired && !tokenRevoked) {
+                        Text(
+                            text = " · ${session.merchant.name}",
+                            color = p.mutedForeground,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+
+                    if (isPaired && !tokenRevoked && isWideScreen) {
+                        SleekTabs(
+                            tab = tab,
+                            onSelect = {
+                                tab = it
+                                activeTextField = null
+                                errorMessage = null
+                                if (it == Tab.Transaksi && createdLink == null) screen = Screen.Form
+                            },
+                        )
+                        Spacer(Modifier.width(8.dp))
                     }
 
                     if (isPaired && !tokenRevoked) {
-                        // Segmented tabs right in the header on wide screens (Z Fold 7 inner screen / Tablet)
-                        if (isWideScreen) {
-                            SingleChoiceSegmentedButtonRow(
-                                modifier = Modifier.height(34.dp),
-                            ) {
-                                Tab.entries.forEachIndexed { index, t ->
-                                    SegmentedButton(
-                                        selected = tab == t,
-                                        onClick = {
-                                            tab = t
-                                            errorMessage = null
-                                            if (t == Tab.Transaksi && createdLink == null) screen = Screen.Form
-                                        },
-                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = Tab.entries.size),
-                                    ) {
-                                        Text(
-                                            text = t.label,
-                                            style = MaterialTheme.typography.labelMedium,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        IconButton(
-                            onClick = { loadMerchantData() },
-                            modifier = Modifier.size(32.dp),
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Sinkronkan",
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
+                        IconSquare(if (loadingData) "…" else "↻", onClick = { loadMerchantData() })
+                        Spacer(Modifier.width(6.dp))
                     }
-
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Kembali ke keyboard",
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+                    IconSquare("✕", onClick = onClose)
                 }
 
                 if (!isPaired || tokenRevoked) {
-                    UnpairedPromptMaterial(
+                    UnpairedPrompt(
                         isRevoked = tokenRevoked,
                         onOpenPairing = onOpenPairing,
                     )
-                    return@Column
+                    Spacer(Modifier.height(10.dp))
+                    return@BoxWithConstraints
                 }
 
-                // Segmented tabs row on compact screens (cover screen / phone portrait)
                 if (!isWideScreen) {
-                    SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(34.dp),
-                    ) {
-                        Tab.entries.forEachIndexed { index, t ->
-                            SegmentedButton(
-                                selected = tab == t,
-                                onClick = {
-                                    tab = t
-                                    errorMessage = null
-                                    if (t == Tab.Transaksi && createdLink == null) screen = Screen.Form
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(index = index, count = Tab.entries.size),
-                            ) {
-                                Text(
-                                    text = t.label,
-                                    style = MaterialTheme.typography.labelMedium,
-                                )
-                            }
-                        }
-                    }
+                    SleekTabs(
+                        tab = tab,
+                        onSelect = {
+                            tab = it
+                            activeTextField = null
+                            errorMessage = null
+                            if (it == Tab.Transaksi && createdLink == null) screen = Screen.Form
+                        },
+                        fillWidth = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
 
                 if (errorMessage != null) {
-                    ErrorBannerMaterial(
+                    ErrorBanner(
                         message = errorMessage!!,
                         onDismiss = { errorMessage = null },
                     )
@@ -618,9 +462,6 @@ private fun PaymentPanelMaterialContent(
                 when (tab) {
                     Tab.Transaksi -> {
                         if (isWideScreen) {
-                            // =========================================================================
-                            // VERSION 2: WIDE / FOLDABLE 2-PANE LAYOUT (Samsung Z Fold 7 Inner Screen)
-                            // =========================================================================
                             TransaksiWideFoldableLayout(
                                 projects = projects,
                                 selectedProject = selectedProject,
@@ -631,7 +472,10 @@ private fun PaymentPanelMaterialContent(
                                 amount = amount,
                                 onAmount = { amount = it },
                                 orderId = orderId,
-                                onTapOrderId = { activeTextField = ActiveTextField.OrderId },
+                                isEditingOrderId = activeTextField == ActiveTextField.OrderId,
+                                onToggleOrderIdEdit = {
+                                    activeTextField = if (activeTextField == ActiveTextField.OrderId) null else ActiveTextField.OrderId
+                                },
                                 onClearOrderId = { orderId = "" },
                                 creating = creating,
                                 onCreate = { triggerCreateLink() },
@@ -651,11 +495,8 @@ private fun PaymentPanelMaterialContent(
                                 },
                             )
                         } else {
-                            // =========================================================================
-                            // VERSION 1: COMPACT PHONE / COVER SCREEN LAYOUT
-                            // =========================================================================
                             if (screen == Screen.Ready && createdLink != null) {
-                                LinkReadyMaterial(
+                                LinkReady(
                                     link = createdLink!!,
                                     checkingStatus = checkingStatus,
                                     onCheckStatus = { triggerCheckStatus() },
@@ -669,7 +510,7 @@ private fun PaymentPanelMaterialContent(
                                     },
                                 )
                             } else {
-                                TransaksiCompactPhoneLayout(
+                                TransaksiCompactLayout(
                                     projects = projects,
                                     selectedProject = selectedProject,
                                     onSelectProject = { prj ->
@@ -679,7 +520,10 @@ private fun PaymentPanelMaterialContent(
                                     amount = amount,
                                     onAmount = { amount = it },
                                     orderId = orderId,
-                                    onTapOrderId = { activeTextField = ActiveTextField.OrderId },
+                                    isEditingOrderId = activeTextField == ActiveTextField.OrderId,
+                                    onToggleOrderIdEdit = {
+                                        activeTextField = if (activeTextField == ActiveTextField.OrderId) null else ActiveTextField.OrderId
+                                    },
                                     onClearOrderId = { orderId = "" },
                                     creating = creating,
                                     onCreate = { triggerCreateLink() },
@@ -689,14 +533,18 @@ private fun PaymentPanelMaterialContent(
                     }
 
                     Tab.Produk -> {
-                        ProdukTabMaterial(
+                        ProdukTab(
                             isWideScreen = isWideScreen,
+                            isKeyboardOpen = activeTextField == ActiveTextField.ProductSearch,
                             products = products,
                             loading = loadingData,
                             search = search,
-                            onTapSearch = { activeTextField = ActiveTextField.ProductSearch },
+                            onToggleSearch = {
+                                activeTextField = if (activeTextField == ActiveTextField.ProductSearch) null else ActiveTextField.ProductSearch
+                            },
                             onClearSearch = { search = "" },
                             onSend = { prod ->
+                                activeTextField = null
                                 onCommitText(prod.buyUrl)
                                 onClose()
                             },
@@ -705,337 +553,121 @@ private fun PaymentPanelMaterialContent(
                 }
             }
         }
-    }
-}
 
-/* ----------------------------------------------------------------------- */
-/* Inline Keyboard Input Mode (for Order ID / Nama Invoice & Cari Produk)  */
-/* ----------------------------------------------------------------------- */
-
-@Composable
-private fun InlineKeyboardInputView(
-    activeField: ActiveTextField,
-    orderId: String,
-    search: String,
-    products: List<Product>,
-    loadingProducts: Boolean,
-    onClear: () -> Unit,
-    onSendProduct: (Product) -> Unit,
-    onDone: () -> Unit,
-) {
-    val isOrderId = activeField == ActiveTextField.OrderId
-    val currentValue = if (isOrderId) orderId else search
-    val label = if (isOrderId) "Order ID / Nama Invoice (opsional)" else "Cari Produk di Katalog"
-    val placeholder = if (isOrderId) "Ketik nomor invoice, mis. INV-2026-001" else "Ketik nama produk…"
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface),
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            tonalElevation = 4.dp,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedCard(
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = CardDefaults.outlinedCardColors(
-                            containerColor = MaterialTheme.colorScheme.surface,
-                        ),
-                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = label,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                                Text(
-                                    text = if (currentValue.isEmpty()) placeholder else "$currentValue|",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = if (currentValue.isEmpty()) FontWeight.Normal else FontWeight.Medium,
-                                    color = if (currentValue.isEmpty()) {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurface
-                                    },
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            if (currentValue.isNotEmpty()) {
-                                IconButton(
-                                    onClick = onClear,
-                                    modifier = Modifier.size(28.dp),
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Clear,
-                                        contentDescription = "Hapus teks",
-                                        modifier = Modifier.size(16.dp),
-                                    )
-                                }
-                            }
-                        }
-                    }
-
-                    Button(
-                        onClick = onDone,
-                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-                        shape = RoundedCornerShape(10.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        Text("Selesai", style = MaterialTheme.typography.labelLarge)
-                    }
-                }
-
-                // When searching products, show quick horizontal results right above the keyboard!
-                if (!isOrderId) {
-                    if (products.isEmpty()) {
-                        Text(
-                            text = if (loadingProducts) "Mencari produk…" else "Tidak ada produk yang cocok.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                        )
-                    } else {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        ) {
-                            products.take(10).forEach { prod ->
-                                OutlinedCard(
-                                    onClick = { onSendProduct(prod) },
-                                    shape = RoundedCornerShape(8.dp),
-                                    colors = CardDefaults.outlinedCardColors(
-                                        containerColor = MaterialTheme.colorScheme.surface,
-                                    ),
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    ) {
-                                        Column {
-                                            Text(
-                                                text = prod.name,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                fontWeight = FontWeight.Medium,
-                                                maxLines = 1,
-                                            )
-                                            Text(
-                                                text = prod.priceLabel,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Filled.Send,
-                                            contentDescription = "Kirim",
-                                            tint = MaterialTheme.colorScheme.primary,
-                                            modifier = Modifier.size(15.dp),
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        // In-place keyboard shown directly underneath the active tab when typing Order ID or Product Search
+        if (activeTextField != null) {
+            Spacer(Modifier.height(6.dp))
+            ImeKeyboardBox()
+        } else {
+            Spacer(Modifier.height(10.dp))
         }
-
-        // Render the actual keyboard below the input bar!
-        ImeKeyboardBox()
     }
 }
 
 /* ----------------------------------------------------------------------- */
-/* Project Selector Dropdown (Blue dot = Live, Red dot = Sandbox)          */
+/* Inline Expandable Project Dropdown (NO PopupWindow -> never resets IME) */
 /* ----------------------------------------------------------------------- */
 
 @Composable
-private fun ProjectDropdownSelector(
+private fun InlineProjectDropdown(
     projects: List<Project>,
     selectedProject: Project?,
     onSelectProject: (Project) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val p = AulaaTheme.palette
     var expanded by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier) {
-        OutlinedCard(
-            onClick = { if (projects.isNotEmpty()) expanded = true },
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-            ),
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                if (selectedProject != null) {
-                    ProjectEnvironmentDot(isProd = selectedProject.isProd)
-                }
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Project",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = selectedProject?.displayLabel() ?: "Belum ada project",
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = "Pilih Project",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-        }
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            projects.forEach { prj ->
-                val isSelected = prj.id == selectedProject?.id
-                DropdownMenuItem(
-                    leadingIcon = {
-                        ProjectEnvironmentDot(isProd = prj.isProd)
-                    },
-                    text = {
-                        Column {
-                            Text(
-                                text = prj.displayLabel(),
-                                style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            )
-                            Text(
-                                text = if (prj.isProd) "Production (Live)" else "Sandbox (Testing)",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    },
-                    trailingIcon = if (isSelected) {
-                        {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(16.dp),
-                            )
-                        }
-                    } else null,
-                    onClick = {
-                        expanded = false
-                        onSelectProject(prj)
-                    },
-                )
-            }
-        }
-    }
-}
-
-/* ----------------------------------------------------------------------- */
-/* Order ID / Nama Invoice Selector Card                                   */
-/* ----------------------------------------------------------------------- */
-
-@Composable
-private fun OrderIdFieldCard(
-    orderId: String,
-    onTap: () -> Unit,
-    onClear: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    OutlinedCard(
-        onClick = onTap,
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-        ),
-        modifier = modifier.fillMaxWidth(),
-    ) {
+    Column(modifier = modifier.fillMaxWidth()) {
         Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+                .border(
+                    BorderStroke(1.dp, if (expanded) p.brandMid else p.border),
+                    RoundedCornerShape(AulaaTheme.radius),
+                )
+                .clickable(enabled = projects.isNotEmpty()) { expanded = !expanded }
+                .padding(horizontal = 10.dp, vertical = 7.dp),
         ) {
-            Icon(
-                imageVector = Icons.Default.Edit,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(15.dp),
-            )
+            if (selectedProject != null) {
+                ProjectEnvironmentDot(isProd = selectedProject.isProd)
+                Spacer(Modifier.width(7.dp))
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Nama Invoice / Order ID",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
+                    text = "PROJECT",
+                    color = p.mutedForeground,
+                    fontSize = 9.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.5.sp,
                 )
                 Text(
-                    text = orderId.ifBlank { "Otomatis (ketuk untuk isi)" },
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = if (orderId.isBlank()) FontWeight.Normal else FontWeight.SemiBold,
-                    color = if (orderId.isBlank()) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
+                    text = selectedProject?.displayLabel() ?: "Belum ada project",
+                    color = p.foreground,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            if (orderId.isNotBlank()) {
-                IconButton(
-                    onClick = onClear,
-                    modifier = Modifier.size(22.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Clear,
-                        contentDescription = "Hapus Order ID",
-                        modifier = Modifier.size(14.dp),
-                    )
+            Text(
+                text = if (expanded) "▴" else "▾",
+                color = p.mutedForeground,
+                fontSize = 12.sp,
+            )
+        }
+
+        AnimatedVisibility(visible = expanded && projects.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp)
+                    .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+                    .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius)),
+            ) {
+                projects.forEachIndexed { index, prj ->
+                    val isSelected = prj.id == selectedProject?.id
+                    if (index > 0) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(p.border),
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (isSelected) p.muted else Color.Transparent)
+                            .clickable {
+                                expanded = false
+                                onSelectProject(prj)
+                            }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                    ) {
+                        ProjectEnvironmentDot(isProd = prj.isProd)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = prj.displayLabel(),
+                            color = p.foreground,
+                            fontSize = 12.5.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (isSelected) {
+                            Text(
+                                text = "✓",
+                                color = p.brandLight,
+                                fontSize = 12.5.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -1043,68 +675,137 @@ private fun OrderIdFieldCard(
 }
 
 /* ----------------------------------------------------------------------- */
-/* Nominal Display Card + Quick Chips + Intuitive Material 3 Numpad        */
+/* In-Place Order ID / Nama Invoice Field                                  */
 /* ----------------------------------------------------------------------- */
 
 @Composable
-private fun NominalDisplayCard(
+private fun InlineOrderIdField(
+    orderId: String,
+    isEditing: Boolean,
+    onToggleEdit: () -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val p = AulaaTheme.palette
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+            .border(
+                BorderStroke(1.dp, if (isEditing) p.brandMid else p.border),
+                RoundedCornerShape(AulaaTheme.radius),
+            )
+            .clickable { onToggleEdit() }
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "NAMA INVOICE (OPSIONAL)",
+                color = if (isEditing) p.brandLight else p.mutedForeground,
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+            )
+            Text(
+                text = when {
+                    isEditing && orderId.isEmpty() -> "|"
+                    isEditing -> "$orderId|"
+                    orderId.isNotEmpty() -> orderId
+                    else -> "Otomatis (ketuk untuk ketik)"
+                },
+                color = if (orderId.isEmpty() && !isEditing) p.mutedForeground else p.foreground,
+                fontSize = 12.5.sp,
+                fontWeight = if (orderId.isNotEmpty()) FontWeight.Medium else FontWeight.Normal,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (orderId.isNotEmpty()) {
+            Text(
+                text = "✕",
+                color = p.mutedForeground,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .clickable { onClear() }
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
+            )
+        }
+        if (isEditing) {
+            Spacer(Modifier.width(4.dp))
+            Text(
+                text = "Selesai",
+                color = p.onBrand,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .background(p.brandDeep, RoundedCornerShape(6.dp))
+                    .clickable { onToggleEdit() }
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+    }
+}
+
+/* ----------------------------------------------------------------------- */
+/* Nominal Display + Quick Chips + Sleek Numpad                            */
+/* ----------------------------------------------------------------------- */
+
+@Composable
+private fun NominalBox(
     amount: Long,
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    OutlinedCard(
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-        ),
-        border = BorderStroke(
-            width = 1.dp,
-            color = if (amount > 0L) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
-        ),
-        modifier = modifier.fillMaxWidth(),
+    val p = AulaaTheme.palette
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "NOMINAL",
+                color = p.mutedForeground,
+                fontSize = 9.5.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+            )
+            Spacer(Modifier.height(1.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text("Rp ", color = p.mutedForeground, fontSize = 15.sp)
                 Text(
-                    text = "Nominal Pembayaran",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = if (amount > 0L) formatIdr(amount) else "Rp 0",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    color = if (amount > 0L) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    text = if (amount > 0L) formatIdr(amount).removePrefix("Rp").trim() else "0",
+                    color = if (amount > 0L) p.foreground else p.mutedForeground,
+                    fontSize = 23.sp,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
-            if (amount > 0L) {
-                TextButton(
-                    onClick = onReset,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                ) {
-                    Text("Reset", style = MaterialTheme.typography.labelMedium)
-                }
-            }
+        }
+        if (amount > 0L) {
+            Text(
+                text = "Reset",
+                color = p.mutedForeground,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                    .border(BorderStroke(1.dp, p.border), RoundedCornerShape(6.dp))
+                    .clickable { onReset() }
+                    .padding(horizontal = 9.dp, vertical = 4.dp),
+            )
         }
     }
 }
 
 @Composable
-private fun QuickNominalRow(
+private fun QuickNominalChips(
     amount: Long,
     onSelectPreset: (Long) -> Unit,
 ) {
+    val p = AulaaTheme.palette
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1112,36 +813,39 @@ private fun QuickNominalRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         quickNominals.forEach { preset ->
-            val selected = amount == preset
-            FilterChip(
-                selected = selected,
-                onClick = { onSelectPreset(preset) },
-                label = {
-                    Text(
-                        text = formatIdr(preset),
-                        style = MaterialTheme.typography.labelMedium,
+            val on = preset == amount
+            Text(
+                text = formatIdr(preset),
+                color = if (on) p.foreground else p.mutedForeground,
+                fontSize = 12.sp,
+                fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
+                modifier = Modifier
+                    .background(if (on) p.muted else p.background, RoundedCornerShape(999.dp))
+                    .border(
+                        BorderStroke(1.dp, if (on) p.brandMid else p.border),
+                        RoundedCornerShape(999.dp),
                     )
-                },
-                modifier = Modifier.height(30.dp),
+                    .clickable { onSelectPreset(preset) }
+                    .padding(horizontal = 11.dp, vertical = 5.dp),
             )
         }
     }
 }
 
 @Composable
-private fun MaterialAmountNumpad(
+private fun SleekAmountNumpad(
     amount: Long,
     isPresetSelected: Boolean,
     onAmountChange: (newAmount: Long, fromPreset: Boolean) -> Unit,
-    keyHeightDp: Int = 36,
+    keyHeightDp: Int = 34,
     modifier: Modifier = Modifier,
 ) {
+    val p = AulaaTheme.palette
     val maxAmount = 999_999_999L
 
-    fun onDigitTap(digits: String) {
+    fun appendDigits(digits: String) {
         val base = if (isPresetSelected || amount == 0L) "" else amount.toString()
-        val combined = (base + digits).take(9)
-        val next = combined.toLongOrNull() ?: 0L
+        val next = (base + digits).take(9).toLongOrNull() ?: 0L
         onAmountChange(next.coerceAtMost(maxAmount), false)
     }
 
@@ -1159,55 +863,34 @@ private fun MaterialAmountNumpad(
         rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 row.forEach { key ->
-                    val isBackspace = key == "⌫"
-                    val isTripleZero = key == "000"
-                    FilledTonalButton(
-                        onClick = {
-                            when (key) {
-                                "⌫" -> onAmountChange(amount / 10L, false)
-                                "000" -> {
-                                    if (amount > 0L) {
-                                        val next = (amount.toString() + "000").take(9).toLongOrNull() ?: amount
-                                        onAmountChange(next.coerceAtMost(maxAmount), false)
-                                    }
-                                }
-                                else -> onDigitTap(key)
-                            }
-                        },
+                    val isAction = key == "⌫" || key == "000"
+                    Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(keyHeightDp.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(0.dp),
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = if (isBackspace || isTripleZero) {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.surfaceVariant
+                            .height(keyHeightDp.dp)
+                            .background(
+                                if (isAction) p.muted else p.key,
+                                RoundedCornerShape(8.dp),
+                            )
+                            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
+                            .clickable {
+                                when (key) {
+                                    "⌫" -> onAmountChange(amount / 10L, false)
+                                    "000" -> if (amount > 0L) appendDigits("000")
+                                    else -> appendDigits(key)
+                                }
                             },
-                            contentColor = if (isBackspace || isTripleZero) {
-                                MaterialTheme.colorScheme.onSecondaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.onSurface
-                            },
-                        ),
+                        contentAlignment = Alignment.Center,
                     ) {
-                        if (isBackspace) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Backspace,
-                                contentDescription = "Hapus",
-                                modifier = Modifier.size(18.dp),
-                            )
-                        } else {
-                            Text(
-                                text = key,
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
+                        Text(
+                            text = key,
+                            color = if (isAction) p.mutedForeground else p.keyForeground,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                        )
                     }
                 }
             }
@@ -1220,14 +903,15 @@ private fun MaterialAmountNumpad(
 /* ----------------------------------------------------------------------- */
 
 @Composable
-private fun TransaksiCompactPhoneLayout(
+private fun TransaksiCompactLayout(
     projects: List<Project>,
     selectedProject: Project?,
     onSelectProject: (Project) -> Unit,
     amount: Long,
     onAmount: (Long) -> Unit,
     orderId: String,
-    onTapOrderId: () -> Unit,
+    isEditingOrderId: Boolean,
+    onToggleOrderIdEdit: () -> Unit,
     onClearOrderId: () -> Unit,
     creating: Boolean,
     onCreate: () -> Unit,
@@ -1236,29 +920,22 @@ private fun TransaksiCompactPhoneLayout(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(7.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        // Row 1: Project Dropdown + Order ID side by side
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            ProjectDropdownSelector(
-                projects = projects,
-                selectedProject = selectedProject,
-                onSelectProject = onSelectProject,
-                modifier = Modifier.weight(1f),
-            )
-            OrderIdFieldCard(
-                orderId = orderId,
-                onTap = onTapOrderId,
-                onClear = onClearOrderId,
-                modifier = Modifier.weight(1f),
-            )
-        }
+        InlineProjectDropdown(
+            projects = projects,
+            selectedProject = selectedProject,
+            onSelectProject = onSelectProject,
+        )
 
-        // Row 2: Nominal Display
-        NominalDisplayCard(
+        InlineOrderIdField(
+            orderId = orderId,
+            isEditing = isEditingOrderId,
+            onToggleEdit = onToggleOrderIdEdit,
+            onClear = onClearOrderId,
+        )
+
+        NominalBox(
             amount = amount,
             onReset = {
                 isPresetSelected = false
@@ -1266,8 +943,7 @@ private fun TransaksiCompactPhoneLayout(
             },
         )
 
-        // Row 3: Quick Nominal Chips
-        QuickNominalRow(
+        QuickNominalChips(
             amount = amount,
             onSelectPreset = { preset ->
                 isPresetSelected = true
@@ -1275,37 +951,29 @@ private fun TransaksiCompactPhoneLayout(
             },
         )
 
-        // Row 4: Clear & Intuitive Material 3 Numpad
-        MaterialAmountNumpad(
-            amount = amount,
-            isPresetSelected = isPresetSelected,
-            onAmountChange = { newAmount, fromPreset ->
-                isPresetSelected = fromPreset
-                onAmount(newAmount)
-            },
-            keyHeightDp = 34,
-        )
+        // When typing Order ID, hide only the numpad so the real QWERTY keyboard sits right below!
+        if (!isEditingOrderId) {
+            SleekAmountNumpad(
+                amount = amount,
+                isPresetSelected = isPresetSelected,
+                onAmountChange = { newAmount, fromPreset ->
+                    isPresetSelected = fromPreset
+                    onAmount(newAmount)
+                },
+                keyHeightDp = 34,
+            )
 
-        // Row 5: Primary Action Button
-        Button(
-            onClick = onCreate,
-            enabled = !creating && selectedProject != null && amount > 0L,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(42.dp),
-            shape = RoundedCornerShape(10.dp),
-        ) {
-            Text(
-                text = if (creating) "Membuat Link Pembayaran…" else "Buat Link Pembayaran",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
+            PrimaryButton(
+                text = if (creating) "Membuat…" else "Buat Link Pembayaran",
+                enabled = !creating && selectedProject != null && amount > 0L,
+                onClick = onCreate,
             )
         }
     }
 }
 
 /* ----------------------------------------------------------------------- */
-/* Version 2: Wide / Foldable 2-Pane Layout (Samsung Z Fold 7 Inner Screen)*/
+/* Version 2: Wide / Foldable 2-Pane Layout (Z Fold 7 Inner Screen)        */
 /* ----------------------------------------------------------------------- */
 
 @Composable
@@ -1316,7 +984,8 @@ private fun TransaksiWideFoldableLayout(
     amount: Long,
     onAmount: (Long) -> Unit,
     orderId: String,
-    onTapOrderId: () -> Unit,
+    isEditingOrderId: Boolean,
+    onToggleOrderIdEdit: () -> Unit,
     onClearOrderId: () -> Unit,
     creating: Boolean,
     onCreate: () -> Unit,
@@ -1329,35 +998,58 @@ private fun TransaksiWideFoldableLayout(
 ) {
     var isPresetSelected by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
-        // LEFT PANE: Project selector, Nominal card, Quick chips, Order ID, Create Button
+    if (isEditingOrderId) {
+        // When typing Order ID on Z Fold 7, show Project + Order ID cleanly above the split QWERTY keyboard
         Column(
-            modifier = Modifier.weight(1.08f),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                ProjectDropdownSelector(
+                InlineProjectDropdown(
                     projects = projects,
                     selectedProject = selectedProject,
                     onSelectProject = onSelectProject,
                     modifier = Modifier.weight(1f),
                 )
-                OrderIdFieldCard(
+                InlineOrderIdField(
                     orderId = orderId,
-                    onTap = onTapOrderId,
+                    isEditing = true,
+                    onToggleEdit = onToggleOrderIdEdit,
                     onClear = onClearOrderId,
                     modifier = Modifier.weight(1f),
                 )
             }
+        }
+        return
+    }
 
-            NominalDisplayCard(
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        // Left Pane: Project + Order ID + Nominal + Quick Chips + Create
+        Column(
+            modifier = Modifier.weight(1.08f),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            InlineProjectDropdown(
+                projects = projects,
+                selectedProject = selectedProject,
+                onSelectProject = onSelectProject,
+            )
+
+            InlineOrderIdField(
+                orderId = orderId,
+                isEditing = false,
+                onToggleEdit = onToggleOrderIdEdit,
+                onClear = onClearOrderId,
+            )
+
+            NominalBox(
                 amount = amount,
                 onReset = {
                     isPresetSelected = false
@@ -1365,7 +1057,7 @@ private fun TransaksiWideFoldableLayout(
                 },
             )
 
-            QuickNominalRow(
+            QuickNominalChips(
                 amount = amount,
                 onSelectPreset = { preset ->
                     isPresetSelected = true
@@ -1373,26 +1065,17 @@ private fun TransaksiWideFoldableLayout(
                 },
             )
 
-            Button(
-                onClick = onCreate,
+            PrimaryButton(
+                text = if (creating) "Membuat…" else "Buat Link Pembayaran",
                 enabled = !creating && selectedProject != null && amount > 0L,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-                shape = RoundedCornerShape(10.dp),
-            ) {
-                Text(
-                    text = if (creating) "Membuat Link Pembayaran…" else "Buat Link Pembayaran",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
+                onClick = onCreate,
+            )
         }
 
-        // RIGHT PANE: Either the Ready Link Card (after creating) or the Ergonomic Numpad
+        // Right Pane: Sleek Numpad or Link Ready
         Box(modifier = Modifier.weight(0.92f)) {
             if (screen == Screen.Ready && createdLink != null) {
-                LinkReadyMaterial(
+                LinkReady(
                     link = createdLink,
                     checkingStatus = checkingStatus,
                     onCheckStatus = onCheckStatus,
@@ -1400,7 +1083,7 @@ private fun TransaksiWideFoldableLayout(
                     onAgain = onAgain,
                 )
             } else {
-                MaterialAmountNumpad(
+                SleekAmountNumpad(
                     amount = amount,
                     isPresetSelected = isPresetSelected,
                     onAmountChange = { newAmount, fromPreset ->
@@ -1415,76 +1098,78 @@ private fun TransaksiWideFoldableLayout(
 }
 
 /* ----------------------------------------------------------------------- */
-/* Link Pembayaran Siap (Material 3)                                       */
+/* Link Pembayaran Siap                                                    */
 /* ----------------------------------------------------------------------- */
 
 @Composable
-private fun LinkReadyMaterial(
+private fun LinkReady(
     link: PaymentLink,
     checkingStatus: Boolean,
     onCheckStatus: () -> Unit,
     onCommit: () -> Unit,
     onAgain: () -> Unit,
 ) {
+    val p = AulaaTheme.palette
     val statusLabel = when (link.status.lowercase()) {
         "paid", "settled", "completed" -> "Lunas ✓"
         "expired", "cancelled", "canceled" -> "Kedaluwarsa"
         else -> "Menunggu pembayaran"
     }
 
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        ),
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
                 .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp),
-                )
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Link Pembayaran Siap",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = "Status: $statusLabel",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                TextButton(
-                    onClick = onCheckStatus,
-                    enabled = !checkingStatus,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier
+                        .size(22.dp)
+                        .background(p.brandTint, CircleShape),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        text = if (checkingStatus) "Mengecek…" else "Cek Status ↻",
-                        style = MaterialTheme.typography.labelMedium,
-                    )
+                    Text("✓", color = p.brandLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Link pembayaran siap",
+                    color = p.foreground,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = if (checkingStatus) "Mengecek…" else "Cek status ↻",
+                    color = p.brandLight,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.clickable(enabled = !checkingStatus) { onCheckStatus() },
+                )
             }
 
-            HorizontalDivider()
+            Text(
+                text = "Status: $statusLabel",
+                color = p.mutedForeground,
+                fontSize = 11.5.sp,
+            )
+
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(p.border),
+            )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = link.payUrl.removePrefix("https://"),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
+                    color = p.foreground,
+                    fontSize = 12.5.sp,
+                    fontFamily = FontFamily.Monospace,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
@@ -1492,9 +1177,9 @@ private fun LinkReadyMaterial(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = formatIdr(link.amount),
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    color = p.foreground,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
                 )
             }
 
@@ -1505,38 +1190,29 @@ private fun LinkReadyMaterial(
             if (metaParts.isNotEmpty()) {
                 Text(
                     text = metaParts.joinToString("  ·  "),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = p.mutedForeground,
+                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
+        }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(
-                    onClick = onAgain,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                ) {
-                    Text("Buat Lagi")
-                }
-                Button(
-                    onClick = onCommit,
-                    modifier = Modifier.weight(1.3f),
-                    shape = RoundedCornerShape(10.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text("Tempel ke Chat")
-                }
-            }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            OutlineButton(
+                text = "Buat lagi",
+                onClick = onAgain,
+                modifier = Modifier.weight(1f),
+            )
+            PrimaryButton(
+                text = "Tempel ke chat",
+                enabled = true,
+                onClick = onCommit,
+                modifier = Modifier.weight(1.4f),
+            )
         }
     }
 }
@@ -1550,69 +1226,72 @@ private fun formatTimestampShort(raw: String): String {
 }
 
 /* ----------------------------------------------------------------------- */
-/* Katalog Produk Tab (1-column on phone, 2-column grid on Z Fold 7)       */
+/* Katalog Produk Tab (In-Place Search + Keyboard Below)                   */
 /* ----------------------------------------------------------------------- */
 
 @Composable
-private fun ProdukTabMaterial(
+private fun ProdukTab(
     isWideScreen: Boolean,
+    isKeyboardOpen: Boolean,
     products: List<Product>,
     loading: Boolean,
     search: String,
-    onTapSearch: () -> Unit,
+    onToggleSearch: () -> Unit,
     onClearSearch: () -> Unit,
     onSend: (Product) -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        // Search Bar (tapping opens the inline keyboard)
-        OutlinedCard(
-            onClick = onTapSearch,
-            shape = RoundedCornerShape(10.dp),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-            ),
-            modifier = Modifier.fillMaxWidth(),
+    val p = AulaaTheme.palette
+    val maxListHeight = if (isKeyboardOpen) 115.dp else 210.dp
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // In-place search field
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+                .border(
+                    BorderStroke(1.dp, if (isKeyboardOpen) p.brandMid else p.border),
+                    RoundedCornerShape(AulaaTheme.radius),
+                )
+                .clickable { onToggleSearch() }
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Cari produk",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
-                )
+            Text(
+                text = when {
+                    isKeyboardOpen && search.isEmpty() -> "|"
+                    isKeyboardOpen -> "$search|"
+                    search.isNotEmpty() -> search
+                    else -> "Cari produk…"
+                },
+                color = if (search.isEmpty() && !isKeyboardOpen) p.mutedForeground else p.foreground,
+                fontSize = 13.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            if (search.isNotEmpty()) {
                 Text(
-                    text = search.ifBlank { "Ketuk untuk cari produk di katalog…" },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (search.isBlank()) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    text = "✕",
+                    color = p.mutedForeground,
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .clickable { onClearSearch() }
+                        .padding(horizontal = 4.dp, vertical = 2.dp),
                 )
-                if (search.isNotBlank()) {
-                    IconButton(
-                        onClick = onClearSearch,
-                        modifier = Modifier.size(22.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Clear,
-                            contentDescription = "Hapus pencarian",
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
-                }
+            }
+            if (isKeyboardOpen) {
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = "Selesai",
+                    color = p.onBrand,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .background(p.brandDeep, RoundedCornerShape(6.dp))
+                        .clickable { onToggleSearch() }
+                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                )
             }
         }
 
@@ -1620,39 +1299,37 @@ private fun ProdukTabMaterial(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(130.dp),
+                    .height(90.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = if (loading) "Memuat katalog produk…" else "Belum ada produk yang cocok.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = p.mutedForeground,
+                    fontSize = 12.5.sp,
                 )
             }
         } else if (isWideScreen) {
-            // 2-Column Product Grid for Samsung Z Fold 7 Inner Screen / Tablet / Landscape
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 210.dp),
+                    .heightIn(max = maxListHeight),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(products, key = { it.id }) { prod ->
-                    ProductItemCard(prod = prod, onSend = { onSend(prod) })
+                    ProductRow(prod = prod, onSend = { onSend(prod) })
                 }
             }
         } else {
-            // 1-Column Product List for Cover Screen / Portrait Phone
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 210.dp),
+                    .heightIn(max = maxListHeight),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(products, key = { it.id }) { prod ->
-                    ProductItemCard(prod = prod, onSend = { onSend(prod) })
+                    ProductRow(prod = prod, onSend = { onSend(prod) })
                 }
             }
         }
@@ -1660,148 +1337,239 @@ private fun ProdukTabMaterial(
 }
 
 @Composable
-private fun ProductItemCard(
+private fun ProductRow(
     prod: Product,
     onSend: () -> Unit,
 ) {
-    OutlinedCard(
-        onClick = onSend,
-        shape = RoundedCornerShape(10.dp),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-        ),
-        modifier = Modifier.fillMaxWidth(),
+    val p = AulaaTheme.palette
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
+            .clickable { onSend() }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
     ) {
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                .size(32.dp)
+                .background(p.muted, RoundedCornerShape(8.dp))
+                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp)),
+            contentAlignment = Alignment.Center,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = prod.initial,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = prod.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                val stockSubtitle = if (prod.stock != null) " · Stok ${prod.stock}" else ""
-                Text(
-                    text = "${prod.priceLabel}$stockSubtitle",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
-            }
-            FilledTonalButton(
-                onClick = onSend,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-                modifier = Modifier.height(32.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Text("Kirim", style = MaterialTheme.typography.labelMedium)
-            }
+            Text(
+                text = prod.initial,
+                color = p.foreground,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = prod.name,
+                color = p.foreground,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val stockSubtitle = if (prod.stock != null) " · Stok ${prod.stock}" else ""
+            Text(
+                text = "${prod.priceLabel}$stockSubtitle",
+                color = p.mutedForeground,
+                fontSize = 11.5.sp,
+                maxLines = 1,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = "Kirim",
+            color = p.foreground,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier
+                .background(p.muted, RoundedCornerShape(7.dp))
+                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp))
+                .clickable { onSend() }
+                .padding(horizontal = 11.dp, vertical = 5.dp),
+        )
     }
 }
 
 /* ----------------------------------------------------------------------- */
-/* Unpaired / Revoked Prompt & Error Banner                                */
+/* Unpaired / Revoked Prompt & Shared Sleek Components                     */
 /* ----------------------------------------------------------------------- */
 
 @Composable
-private fun UnpairedPromptMaterial(
+private fun UnpairedPrompt(
     isRevoked: Boolean,
     onOpenPairing: (() -> Unit)?,
 ) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+    val p = AulaaTheme.palette
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(
-                text = if (isRevoked) "Perangkat Tidak Lagi Terhubung" else "Hubungkan Akun Merchant Aulaa",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold,
+        Text(
+            text = if (isRevoked) "Perangkat tidak lagi terhubung" else "Hubungkan dengan akun Merchant Aulaa",
+            color = p.foreground,
+            fontSize = 14.5.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = if (isRevoked) {
+                "Token perangkat ini telah dicabut atau kedaluwarsa. Hubungkan ulang melalui kode pairing atau scan QR dari Dashboard Web Aulaa."
+            } else {
+                "Buka Dashboard Web Aulaa → Account Settings → Keyboard devices, lalu scan QR atau klaim kode pairing 8 karakter."
+            },
+            color = p.mutedForeground,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+        )
+        if (onOpenPairing != null) {
+            PrimaryButton(
+                text = "Hubungkan Perangkat (Pairing)",
+                enabled = true,
+                onClick = onOpenPairing,
             )
-            Text(
-                text = if (isRevoked) {
-                    "Token perangkat ini telah dicabut atau kedaluwarsa. Hubungkan ulang melalui kode pairing atau scan QR dari Dashboard Web Aulaa."
-                } else {
-                    "Buka Dashboard Web Aulaa → Account Settings → Keyboard Devices, lalu scan QR Code atau masukkan kode pairing 8 karakter."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            if (onOpenPairing != null) {
-                Button(
-                    onClick = onOpenPairing,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.QrCode2,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text("Hubungkan Perangkat (Pairing)")
-                }
+        }
+    }
+}
+
+@Composable
+private fun ErrorBanner(message: String, onDismiss: () -> Unit) {
+    val p = AulaaTheme.palette
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(p.muted, RoundedCornerShape(8.dp))
+            .border(BorderStroke(1.dp, Color(0x66EF4444)), RoundedCornerShape(8.dp))
+            .clickable { onDismiss() }
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+    ) {
+        Text(
+            text = message,
+            color = p.foreground,
+            fontSize = 11.5.sp,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text("✕", color = p.mutedForeground, fontSize = 11.5.sp)
+    }
+}
+
+@Composable
+private fun IconSquare(glyph: String, onClick: () -> Unit) {
+    val p = AulaaTheme.palette
+    Box(
+        modifier = Modifier
+            .size(28.dp)
+            .background(p.background, RoundedCornerShape(7.dp))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(glyph, color = p.mutedForeground, fontSize = 12.5.sp)
+    }
+}
+
+@Composable
+private fun SleekTabs(
+    tab: Tab,
+    onSelect: (Tab) -> Unit,
+    fillWidth: Boolean = false,
+    modifier: Modifier = Modifier,
+) {
+    val p = AulaaTheme.palette
+    Row(
+        modifier = modifier
+            .background(p.background, RoundedCornerShape(9.dp))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(9.dp))
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
+    ) {
+        Tab.entries.forEach { t ->
+            val on = t == tab
+            Box(
+                modifier = Modifier
+                    .then(if (fillWidth) Modifier.weight(1f) else Modifier)
+                    .background(if (on) p.muted else Color.Transparent, RoundedCornerShape(6.dp))
+                    .clickable { onSelect(t) }
+                    .padding(horizontal = 14.dp, vertical = 5.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = t.label,
+                    color = if (on) p.foreground else p.mutedForeground,
+                    fontSize = 12.sp,
+                    fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
+                    maxLines = 1,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun ErrorBannerMaterial(
-    message: String,
-    onDismiss: () -> Unit,
+private fun PrimaryButton(
+    text: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Surface(
-        onClick = onDismiss,
-        shape = RoundedCornerShape(8.dp),
-        color = MaterialTheme.colorScheme.errorContainer,
-        contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        modifier = Modifier.fillMaxWidth(),
+    val p = AulaaTheme.palette
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .background(
+                brush = if (enabled) {
+                    Brush.linearGradient(listOf(p.brandMid, p.brandDeep))
+                } else {
+                    SolidColor(p.muted)
+                },
+                shape = RoundedCornerShape(AulaaTheme.radius),
+            )
+            .clickable(enabled = enabled) { onClick() },
+        contentAlignment = Alignment.Center,
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = message,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.weight(1f),
-            )
-            Spacer(Modifier.width(6.dp))
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Tutup",
-                modifier = Modifier.size(15.dp),
-            )
-        }
+        Text(
+            text = text,
+            color = if (enabled) p.onBrand else p.mutedForeground,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun OutlineButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val p = AulaaTheme.palette
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = p.foreground,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+        )
     }
 }
