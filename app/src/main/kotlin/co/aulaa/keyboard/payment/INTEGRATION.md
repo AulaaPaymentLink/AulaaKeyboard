@@ -33,4 +33,7 @@ This package (`co.aulaa.keyboard.payment`) contains the Aulaa payment feature an
 ## 4. Pairing + Android Keystore token storage (`AndroidKeystorePairingStore` & `AulaaScreen`)
 
 - `AndroidKeystorePairingStore` encrypts the `PairingSession` (including `device_token`) with a hardware-backed AES-256-GCM key (`co.aulaa.keyboard.pairing_aes_key`) in `AndroidKeyStore`.
-- `AulaaScreen` (`Routes.Settings.Aulaa`, accessible from the top of `HomeScreen` or via the "Hubungkan Perangkat" button in the keyboard panel) lets merchants claim an 8-character pairing code (`ABCD-EFGH`) or scan the dashboard QR deep link (`aulaa-keyboard://pair?code=ABCDEFGH`).
+- `AulaaAttestation` generates an Android Keystore Hardware Key Attestation v1 proof (`cert_chain` + ECDSA signature over `aulaa-pairing-v1:<NORMALIZED_CODE>:<DEVICE_NAME>`) on every `POST /v1/keyboard/pairing/claim` request so the backend can verify that the caller is an official APK signed by Aulaa's release keystore (`OID 1.3.6.1.4.1.11129.2.1.17`).
+- `AulaaScreen` (`Routes.Settings.Aulaa`, accessible from the top of `HomeScreen` or via the "Hubungkan Perangkat" button in the keyboard panel) supports both:
+  1. **Official Pairing (QR / 8-char code)** for official Aulaa builds, and
+  2. **Custom Project API Key** for developers who compile the open-source repo themselves.

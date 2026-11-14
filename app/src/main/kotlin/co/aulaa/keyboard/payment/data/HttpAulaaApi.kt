@@ -18,6 +18,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.doubleOrNull
@@ -59,9 +60,23 @@ class HttpAulaaApi(
             throw AulaaApiException(400, "Nama perangkat wajib diisi (maks 100 karakter).")
         }
 
+        val attestation = runCatching {
+            AulaaAttestation.generateForPairingClaim(cleanCode, cleanDeviceName)
+        }.getOrNull()
+
         val bodyJson = buildJsonObject {
             put("code", cleanCode)
             put("device_name", cleanDeviceName)
+            if (attestation != null) {
+                put("attestation", buildJsonObject {
+                    put("version", attestation.version)
+                    put("challenge", attestation.challenge)
+                    put("signature", attestation.signature)
+                    put("cert_chain", buildJsonArray {
+                        attestation.certChain.forEach { certB64 -> add(JsonPrimitive(certB64)) }
+                    })
+                })
+            }
         }.toString()
 
         val response = request(
@@ -268,7 +283,7 @@ class HttpAulaaApi(
             return when (status) {
                 400 -> serverMessage ?: "Data perangkat atau format kode tidak valid (400)."
                 401 -> "Kode pairing salah, sudah dipakai, atau sudah kedaluwarsa (401)."
-                403 -> "Akun merchant dibekukan atau batas 10 perangkat aktif telah tercapai (403)."
+                403 -> serverMessage ?: "Pairing ditolak (403): pastikan menggunakan APK resmi Aulaa (atau gunakan API Key Project jika build kustom), dan batas 10 perangkat belum penuh."
                 429 -> "Terlalu banyak percobaan klaim gagal dari IP ini. Coba lagi nanti (429)."
                 else -> serverMessage ?: "Gagal klaim pairing (HTTP $status)."
             }
@@ -361,3 +376,4 @@ class HttpAulaaApi(
         return prim.booleanOrNull ?: prim.contentOrNull?.toBooleanStrictOrNull()
     }
 }
+
