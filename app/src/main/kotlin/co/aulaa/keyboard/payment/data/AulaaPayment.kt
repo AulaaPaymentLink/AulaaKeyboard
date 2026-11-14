@@ -43,6 +43,7 @@ data class Product(
     val priceLabel: String,
     @SerialName("is_active") val isActive: Boolean = true,
     val stock: Int? = null,
+    @SerialName("image_url") val imageUrl: String? = null,
     val payBaseUrl: String = DEFAULT_PAY_BASE_URL,
 ) {
     val buyUrl: String get() = "${payBaseUrl.trimEnd('/')}/buy/$id"

@@ -343,6 +343,15 @@ class HttpAulaaApi(
         val price = long("price") ?: long("amount") ?: 0L
         val isActive = boolean("is_active") ?: true
         val stock = int("stock")
+        val rawImage = string("image_url")
+            ?: string("image")
+            ?: string("thumbnail_url")
+            ?: string("thumbnail")
+            ?: string("photo_url")
+        val resolvedImage = rawImage?.trim()?.takeIf { it.isNotEmpty() }?.let { img ->
+            if (img.startsWith("http://") || img.startsWith("https://")) img
+            else "${payBaseUrl.trimEnd('/')}/${img.trimStart('/')}"
+        }
         return Product(
             id = id,
             projectId = string("project_id"),
@@ -351,6 +360,7 @@ class HttpAulaaApi(
             priceLabel = formatIdr(price),
             isActive = isActive,
             stock = stock,
+            imageUrl = resolvedImage,
             payBaseUrl = payBaseUrl,
         )
     }

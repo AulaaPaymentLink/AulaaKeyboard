@@ -10,18 +10,22 @@
 
 package co.aulaa.keyboard.payment.ui
 
-import androidx.compose.animation.AnimatedVisibility
+import android.graphics.BitmapFactory
+import android.util.LruCache
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -36,6 +40,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -51,14 +56,19 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import co.aulaa.keyboard.payment.data.AulaaApi
 import co.aulaa.keyboard.payment.data.AulaaApiException
 import co.aulaa.keyboard.payment.data.PairingStore
@@ -72,13 +82,17 @@ import dev.patrickgold.florisboard.ime.keyboard3.ImeActions
 import dev.patrickgold.florisboard.ime.keyboard3.LocalImeController
 import dev.patrickgold.florisboard.ime.keyboard3.touch.InputShiftState
 import dev.patrickgold.florisboard.ime.keyboard3.ui.ImeKeyboardBox
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.k3lp.lib.text.K3Descriptor
 import org.k3lp.lib.text.K3String
+import java.net.HttpURLConnection
+import java.net.URL
 
 private enum class Tab(val label: String) {
-    Transaksi("Buat Transaksi"),
+    Transaksi("Transaksi"),
     Produk("Produk"),
 }
 
@@ -93,6 +107,36 @@ private val quickNominals = listOf(50_000L, 100_000L, 150_000L, 200_000L, 500_00
 
 private val LiveDotColor = Color(0xFF2196F3)
 private val SandboxDotColor = Color(0xFFEF4444)
+
+private object ProductThumbnailCache {
+    private val cache = LruCache<String, ImageBitmap>(60)
+
+    fun get(url: String): ImageBitmap? = cache.get(url)
+
+    suspend fun load(url: String): ImageBitmap? {
+        cache.get(url)?.let { return it }
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 6_000
+                    readTimeout = 8_000
+                    instanceFollowRedirects = true
+                }
+                try {
+                    if (conn.responseCode in 200..299) {
+                        conn.inputStream.use { stream ->
+                            BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                        }
+                    } else null
+                } finally {
+                    conn.disconnect()
+                }
+            }.getOrNull()?.also { bmp ->
+                cache.put(url, bmp)
+            }
+        }
+    }
+}
 
 /**
  * Formats project display name according to environment:
@@ -133,6 +177,7 @@ fun PaymentPanel(
     var tab by remember { mutableStateOf(Tab.Transaksi) }
     var screen by remember { mutableStateOf(Screen.Form) }
     var activeTextField by remember { mutableStateOf<ActiveTextField?>(null) }
+    var projectDropdownOpen by remember { mutableStateOf(false) }
 
     var projects by remember(session) { mutableStateOf(session?.projects.orEmpty()) }
     var selectedProject by remember(session) { mutableStateOf(session?.projects?.firstOrNull()) }
@@ -318,6 +363,7 @@ fun PaymentPanel(
             return
         }
         activeTextField = null
+        projectDropdownOpen = false
         creating = true
         errorMessage = null
         scope.launch {
@@ -369,140 +415,99 @@ fun PaymentPanel(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(p.card, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-            .padding(top = 10.dp),
+            .background(p.card, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+            .padding(top = 8.dp),
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 12.dp),
         ) {
             val isWideScreen = maxWidth >= 540.dp
 
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(9.dp),
-            ) {
-                // ---- Header: Clean Aulaa.co look ----
-                Row(
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    AulaaBrandMark(size = 24.dp, showContainer = false)
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Aulaa",
-                        color = p.foreground,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    if (session != null && isPaired && !tokenRevoked) {
-                        Text(
-                            text = " · ${session.merchant.name}",
-                            color = p.mutedForeground,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        Spacer(Modifier.weight(1f))
-                    }
-
-                    if (isPaired && !tokenRevoked && isWideScreen) {
-                        SleekTabs(
-                            tab = tab,
-                            onSelect = {
-                                tab = it
-                                activeTextField = null
-                                errorMessage = null
-                                if (it == Tab.Transaksi && createdLink == null) screen = Screen.Form
-                            },
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-
-                    if (isPaired && !tokenRevoked) {
-                        IconSquare(if (loadingData) "…" else "↻", onClick = { loadMerchantData() })
-                        Spacer(Modifier.width(6.dp))
-                    }
-                    IconSquare("✕", onClick = onClose)
-                }
-
-                if (!isPaired || tokenRevoked) {
-                    UnpairedPrompt(
-                        isRevoked = tokenRevoked,
-                        onOpenPairing = onOpenPairing,
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    return@BoxWithConstraints
-                }
-
-                if (!isWideScreen) {
-                    SleekTabs(
-                        tab = tab,
-                        onSelect = {
-                            tab = it
-                            activeTextField = null
-                            errorMessage = null
-                            if (it == Tab.Transaksi && createdLink == null) screen = Screen.Form
-                        },
-                        fillWidth = true,
+                    // ---- Compact Single Header Row: Brand + Tabs + Refresh + Close ----
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AulaaBrandMark(size = 20.dp, showContainer = false)
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Aulaa",
+                            color = p.foreground,
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(Modifier.weight(1f))
 
-                if (errorMessage != null) {
-                    ErrorBanner(
-                        message = errorMessage!!,
-                        onDismiss = { errorMessage = null },
-                    )
-                }
-
-                when (tab) {
-                    Tab.Transaksi -> {
-                        if (isWideScreen) {
-                            TransaksiWideFoldableLayout(
-                                projects = projects,
-                                selectedProject = selectedProject,
-                                onSelectProject = { prj ->
-                                    selectedProject = prj
-                                    loadMerchantData(projectIdFilter = prj.id)
-                                },
-                                amount = amount,
-                                onAmount = { amount = it },
-                                orderId = orderId,
-                                isEditingOrderId = activeTextField == ActiveTextField.OrderId,
-                                onToggleOrderIdEdit = {
-                                    activeTextField = if (activeTextField == ActiveTextField.OrderId) null else ActiveTextField.OrderId
-                                },
-                                onClearOrderId = { orderId = "" },
-                                creating = creating,
-                                onCreate = { triggerCreateLink() },
-                                screen = screen,
-                                createdLink = createdLink,
-                                checkingStatus = checkingStatus,
-                                onCheckStatus = { triggerCheckStatus() },
-                                onCommit = {
-                                    createdLink?.let {
-                                        onCommitText(it.payUrl)
-                                        onClose()
-                                    }
-                                },
-                                onAgain = {
-                                    createdLink = null
-                                    screen = Screen.Form
+                        if (isPaired && !tokenRevoked) {
+                            SleekTabs(
+                                tab = tab,
+                                onSelect = {
+                                    tab = it
+                                    activeTextField = null
+                                    projectDropdownOpen = false
+                                    errorMessage = null
+                                    if (it == Tab.Transaksi && createdLink == null) screen = Screen.Form
                                 },
                             )
-                        } else {
-                            if (screen == Screen.Ready && createdLink != null) {
-                                LinkReady(
-                                    link = createdLink!!,
+                            Spacer(Modifier.width(6.dp))
+                            IconSquare(if (loadingData) "…" else "↻", onClick = { loadMerchantData() })
+                            Spacer(Modifier.width(5.dp))
+                        }
+                        IconSquare("✕", onClick = onClose)
+                    }
+
+                    if (!isPaired || tokenRevoked) {
+                        UnpairedPrompt(
+                            isRevoked = tokenRevoked,
+                            onOpenPairing = onOpenPairing,
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        return@BoxWithConstraints
+                    }
+
+                    if (errorMessage != null) {
+                        ErrorBanner(
+                            message = errorMessage!!,
+                            onDismiss = { errorMessage = null },
+                        )
+                    }
+
+                    when (tab) {
+                        Tab.Transaksi -> {
+                            if (isWideScreen) {
+                                TransaksiWideFoldableLayout(
+                                    selectedProject = selectedProject,
+                                    projectDropdownOpen = projectDropdownOpen,
+                                    onToggleProjectDropdown = {
+                                        projectDropdownOpen = !projectDropdownOpen
+                                    },
+                                    amount = amount,
+                                    onAmount = { amount = it },
+                                    orderId = orderId,
+                                    isEditingOrderId = activeTextField == ActiveTextField.OrderId,
+                                    onToggleOrderIdEdit = {
+                                        projectDropdownOpen = false
+                                        activeTextField = if (activeTextField == ActiveTextField.OrderId) null else ActiveTextField.OrderId
+                                    },
+                                    onClearOrderId = { orderId = "" },
+                                    creating = creating,
+                                    onCreate = { triggerCreateLink() },
+                                    screen = screen,
+                                    createdLink = createdLink,
                                     checkingStatus = checkingStatus,
                                     onCheckStatus = { triggerCheckStatus() },
                                     onCommit = {
-                                        onCommitText(createdLink!!.payUrl)
-                                        onClose()
+                                        createdLink?.let {
+                                            onCommitText(it.payUrl)
+                                            onClose()
+                                        }
                                     },
                                     onAgain = {
                                         createdLink = null
@@ -510,173 +515,193 @@ fun PaymentPanel(
                                     },
                                 )
                             } else {
-                                TransaksiCompactLayout(
-                                    projects = projects,
-                                    selectedProject = selectedProject,
-                                    onSelectProject = { prj ->
-                                        selectedProject = prj
-                                        loadMerchantData(projectIdFilter = prj.id)
-                                    },
-                                    amount = amount,
-                                    onAmount = { amount = it },
-                                    orderId = orderId,
-                                    isEditingOrderId = activeTextField == ActiveTextField.OrderId,
-                                    onToggleOrderIdEdit = {
-                                        activeTextField = if (activeTextField == ActiveTextField.OrderId) null else ActiveTextField.OrderId
-                                    },
-                                    onClearOrderId = { orderId = "" },
-                                    creating = creating,
-                                    onCreate = { triggerCreateLink() },
-                                )
+                                if (screen == Screen.Ready && createdLink != null) {
+                                    LinkReady(
+                                        link = createdLink!!,
+                                        checkingStatus = checkingStatus,
+                                        onCheckStatus = { triggerCheckStatus() },
+                                        onCommit = {
+                                            onCommitText(createdLink!!.payUrl)
+                                            onClose()
+                                        },
+                                        onAgain = {
+                                            createdLink = null
+                                            screen = Screen.Form
+                                        },
+                                    )
+                                } else {
+                                    TransaksiCompactLayout(
+                                        selectedProject = selectedProject,
+                                        projectDropdownOpen = projectDropdownOpen,
+                                        onToggleProjectDropdown = {
+                                            projectDropdownOpen = !projectDropdownOpen
+                                        },
+                                        amount = amount,
+                                        onAmount = { amount = it },
+                                        orderId = orderId,
+                                        isEditingOrderId = activeTextField == ActiveTextField.OrderId,
+                                        onToggleOrderIdEdit = {
+                                            projectDropdownOpen = false
+                                            activeTextField = if (activeTextField == ActiveTextField.OrderId) null else ActiveTextField.OrderId
+                                        },
+                                        onClearOrderId = { orderId = "" },
+                                        creating = creating,
+                                        onCreate = { triggerCreateLink() },
+                                    )
+                                }
                             }
                         }
-                    }
 
-                    Tab.Produk -> {
-                        ProdukTab(
-                            isWideScreen = isWideScreen,
-                            isKeyboardOpen = activeTextField == ActiveTextField.ProductSearch,
-                            products = products,
-                            loading = loadingData,
-                            search = search,
-                            onToggleSearch = {
-                                activeTextField = if (activeTextField == ActiveTextField.ProductSearch) null else ActiveTextField.ProductSearch
-                            },
-                            onClearSearch = { search = "" },
-                            onSend = { prod ->
-                                activeTextField = null
-                                onCommitText(prod.buyUrl)
-                                onClose()
-                            },
-                        )
-                    }
-                }
-            }
-        }
-
-        // In-place keyboard shown directly underneath the active tab when typing Order ID or Product Search
-        if (activeTextField != null) {
-            Spacer(Modifier.height(6.dp))
-            ImeKeyboardBox()
-        } else {
-            Spacer(Modifier.height(10.dp))
-        }
-    }
-}
-
-/* ----------------------------------------------------------------------- */
-/* Inline Expandable Project Dropdown (NO PopupWindow -> never resets IME) */
-/* ----------------------------------------------------------------------- */
-
-@Composable
-private fun InlineProjectDropdown(
-    projects: List<Project>,
-    selectedProject: Project?,
-    onSelectProject: (Project) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val p = AulaaTheme.palette
-    var expanded by remember { mutableStateOf(false) }
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-                .border(
-                    BorderStroke(1.dp, if (expanded) p.brandMid else p.border),
-                    RoundedCornerShape(AulaaTheme.radius),
-                )
-                .clickable(enabled = projects.isNotEmpty()) { expanded = !expanded }
-                .padding(horizontal = 10.dp, vertical = 7.dp),
-        ) {
-            if (selectedProject != null) {
-                ProjectEnvironmentDot(isProd = selectedProject.isProd)
-                Spacer(Modifier.width(7.dp))
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "PROJECT",
-                    color = p.mutedForeground,
-                    fontSize = 9.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    letterSpacing = 0.5.sp,
-                )
-                Text(
-                    text = selectedProject?.displayLabel() ?: "Belum ada project",
-                    color = p.foreground,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Text(
-                text = if (expanded) "▴" else "▾",
-                color = p.mutedForeground,
-                fontSize = 12.sp,
-            )
-        }
-
-        AnimatedVisibility(visible = expanded && projects.isNotEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp)
-                    .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-                    .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius)),
-            ) {
-                projects.forEachIndexed { index, prj ->
-                    val isSelected = prj.id == selectedProject?.id
-                    if (index > 0) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .height(1.dp)
-                                .background(p.border),
-                        )
-                    }
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(if (isSelected) p.muted else Color.Transparent)
-                            .clickable {
-                                expanded = false
-                                onSelectProject(prj)
-                            }
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                    ) {
-                        ProjectEnvironmentDot(isProd = prj.isProd)
-                        Spacer(Modifier.width(8.dp))
-                        Text(
-                            text = prj.displayLabel(),
-                            color = p.foreground,
-                            fontSize = 12.5.sp,
-                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (isSelected) {
-                            Text(
-                                text = "✓",
-                                color = p.brandLight,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Bold,
+                        Tab.Produk -> {
+                            ProdukTab(
+                                isWideScreen = isWideScreen,
+                                isKeyboardOpen = activeTextField == ActiveTextField.ProductSearch,
+                                products = products,
+                                loading = loadingData,
+                                search = search,
+                                onToggleSearch = {
+                                    projectDropdownOpen = false
+                                    activeTextField = if (activeTextField == ActiveTextField.ProductSearch) null else ActiveTextField.ProductSearch
+                                },
+                                onClearSearch = { search = "" },
+                                onSend = { prod ->
+                                    activeTextField = null
+                                    onCommitText(prod.buyUrl)
+                                    onClose()
+                                },
                             )
                         }
                     }
                 }
+
+                // ---- In-Panel Floating Project Dropdown Overlay (scrollable, never increases IME height, never uses PopupWindow) ----
+                if (projectDropdownOpen && projects.isNotEmpty() && tab == Tab.Transaksi) {
+                    // Dismiss scrim inside the panel
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .zIndex(9f)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { projectDropdownOpen = false },
+                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(top = 72.dp)
+                            .fillMaxWidth(if (isWideScreen) 0.52f else 1f)
+                            .heightIn(max = 160.dp)
+                            .zIndex(10f)
+                            .shadow(10.dp, RoundedCornerShape(AulaaTheme.radius))
+                            .background(p.card, RoundedCornerShape(AulaaTheme.radius))
+                            .border(BorderStroke(1.dp, p.brandMid), RoundedCornerShape(AulaaTheme.radius))
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        projects.forEachIndexed { index, prj ->
+                            val isSelected = prj.id == selectedProject?.id
+                            if (index > 0) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(p.border),
+                                )
+                            }
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(if (isSelected) p.muted else Color.Transparent)
+                                    .clickable {
+                                        projectDropdownOpen = false
+                                        selectedProject = prj
+                                        loadMerchantData(projectIdFilter = prj.id)
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                            ) {
+                                ProjectEnvironmentDot(isProd = prj.isProd)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = prj.displayLabel(),
+                                    color = p.foreground,
+                                    fontSize = 12.5.sp,
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (isSelected) {
+                                    Text(
+                                        text = "✓",
+                                        color = p.brandLight,
+                                        fontSize = 12.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
+        }
+
+        // In-place keyboard shown directly underneath when typing Order ID or Product Search
+        if (activeTextField != null) {
+            Spacer(Modifier.height(4.dp))
+            ImeKeyboardBox()
+        } else {
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 /* ----------------------------------------------------------------------- */
-/* In-Place Order ID / Nama Invoice Field                                  */
+/* Compact Project Selector Trigger & Order ID Trigger                     */
 /* ----------------------------------------------------------------------- */
+
+@Composable
+private fun ProjectSelectorTrigger(
+    selectedProject: Project?,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val p = AulaaTheme.palette
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(34.dp)
+            .background(p.background, RoundedCornerShape(8.dp))
+            .border(
+                BorderStroke(1.dp, if (expanded) p.brandMid else p.border),
+                RoundedCornerShape(8.dp),
+            )
+            .clickable { onClick() }
+            .padding(horizontal = 9.dp),
+    ) {
+        if (selectedProject != null) {
+            ProjectEnvironmentDot(isProd = selectedProject.isProd)
+            Spacer(Modifier.width(6.dp))
+        }
+        Text(
+            text = selectedProject?.displayLabel() ?: "Pilih project",
+            color = p.foreground,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = if (expanded) "▴" else "▾",
+            color = p.mutedForeground,
+            fontSize = 11.sp,
+        )
+    }
+}
 
 @Composable
 private fun InlineOrderIdField(
@@ -691,64 +716,57 @@ private fun InlineOrderIdField(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+            .height(34.dp)
+            .background(p.background, RoundedCornerShape(8.dp))
             .border(
                 BorderStroke(1.dp, if (isEditing) p.brandMid else p.border),
-                RoundedCornerShape(AulaaTheme.radius),
+                RoundedCornerShape(8.dp),
             )
             .clickable { onToggleEdit() }
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .padding(horizontal = 9.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "NAMA INVOICE (OPSIONAL)",
-                color = if (isEditing) p.brandLight else p.mutedForeground,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.5.sp,
-            )
-            Text(
-                text = when {
-                    isEditing && orderId.isEmpty() -> "|"
-                    isEditing -> "$orderId|"
-                    orderId.isNotEmpty() -> orderId
-                    else -> "Otomatis (ketuk untuk ketik)"
-                },
-                color = if (orderId.isEmpty() && !isEditing) p.mutedForeground else p.foreground,
-                fontSize = 12.5.sp,
-                fontWeight = if (orderId.isNotEmpty()) FontWeight.Medium else FontWeight.Normal,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = when {
+                isEditing && orderId.isEmpty() -> "|"
+                isEditing -> "$orderId|"
+                orderId.isNotEmpty() -> orderId
+                else -> "Invoice (opsional)"
+            },
+            color = if (orderId.isEmpty() && !isEditing) p.mutedForeground else p.foreground,
+            fontSize = 12.sp,
+            fontWeight = if (orderId.isNotEmpty()) FontWeight.Medium else FontWeight.Normal,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
         if (orderId.isNotEmpty()) {
             Text(
                 text = "✕",
                 color = p.mutedForeground,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 modifier = Modifier
                     .clickable { onClear() }
-                    .padding(horizontal = 4.dp, vertical = 2.dp),
+                    .padding(horizontal = 4.dp),
             )
         }
         if (isEditing) {
-            Spacer(Modifier.width(4.dp))
+            Spacer(Modifier.width(3.dp))
             Text(
-                text = "Selesai",
+                text = "OK",
                 color = p.onBrand,
-                fontSize = 11.sp,
+                fontSize = 10.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
-                    .background(p.brandDeep, RoundedCornerShape(6.dp))
+                    .background(p.brandDeep, RoundedCornerShape(5.dp))
                     .clickable { onToggleEdit() }
-                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                    .padding(horizontal = 7.dp, vertical = 2.dp),
             )
         }
     }
 }
 
 /* ----------------------------------------------------------------------- */
-/* Nominal Display + Quick Chips + Sleek Numpad                            */
+/* Nominal Display + Quick Chips + Sleek Compact Numpad                    */
 /* ----------------------------------------------------------------------- */
 
 @Composable
@@ -762,39 +780,29 @@ private fun NominalBox(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .height(40.dp)
+            .background(p.background, RoundedCornerShape(8.dp))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "NOMINAL",
-                color = p.mutedForeground,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.5.sp,
-            )
-            Spacer(Modifier.height(1.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text("Rp ", color = p.mutedForeground, fontSize = 15.sp)
-                Text(
-                    text = if (amount > 0L) formatIdr(amount).removePrefix("Rp").trim() else "0",
-                    color = if (amount > 0L) p.foreground else p.mutedForeground,
-                    fontSize = 23.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
+        Text("Rp ", color = p.mutedForeground, fontSize = 13.sp)
+        Text(
+            text = if (amount > 0L) formatIdr(amount).removePrefix("Rp").trim() else "0",
+            color = if (amount > 0L) p.foreground else p.mutedForeground,
+            fontSize = 19.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+        )
         if (amount > 0L) {
             Text(
                 text = "Reset",
                 color = p.mutedForeground,
-                fontSize = 11.5.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
-                    .border(BorderStroke(1.dp, p.border), RoundedCornerShape(6.dp))
+                    .border(BorderStroke(1.dp, p.border), RoundedCornerShape(5.dp))
                     .clickable { onReset() }
-                    .padding(horizontal = 9.dp, vertical = 4.dp),
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
             )
         }
     }
@@ -810,14 +818,14 @@ private fun QuickNominalChips(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
         quickNominals.forEach { preset ->
             val on = preset == amount
             Text(
                 text = formatIdr(preset),
                 color = if (on) p.foreground else p.mutedForeground,
-                fontSize = 12.sp,
+                fontSize = 11.5.sp,
                 fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                 modifier = Modifier
                     .background(if (on) p.muted else p.background, RoundedCornerShape(999.dp))
@@ -826,7 +834,7 @@ private fun QuickNominalChips(
                         RoundedCornerShape(999.dp),
                     )
                     .clickable { onSelectPreset(preset) }
-                    .padding(horizontal = 11.dp, vertical = 5.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
     }
@@ -837,7 +845,7 @@ private fun SleekAmountNumpad(
     amount: Long,
     isPresetSelected: Boolean,
     onAmountChange: (newAmount: Long, fromPreset: Boolean) -> Unit,
-    keyHeightDp: Int = 34,
+    keyHeightDp: Int = 27,
     modifier: Modifier = Modifier,
 ) {
     val p = AulaaTheme.palette
@@ -858,12 +866,12 @@ private fun SleekAmountNumpad(
 
     Column(
         modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(5.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         rows.forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 row.forEach { key ->
                     val isAction = key == "⌫" || key == "000"
@@ -873,9 +881,9 @@ private fun SleekAmountNumpad(
                             .height(keyHeightDp.dp)
                             .background(
                                 if (isAction) p.muted else p.key,
-                                RoundedCornerShape(8.dp),
+                                RoundedCornerShape(6.dp),
                             )
-                            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
+                            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(6.dp))
                             .clickable {
                                 when (key) {
                                     "⌫" -> onAmountChange(amount / 10L, false)
@@ -888,7 +896,7 @@ private fun SleekAmountNumpad(
                         Text(
                             text = key,
                             color = if (isAction) p.mutedForeground else p.keyForeground,
-                            fontSize = 14.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                         )
                     }
@@ -899,14 +907,14 @@ private fun SleekAmountNumpad(
 }
 
 /* ----------------------------------------------------------------------- */
-/* Version 1: Compact Phone / Cover Screen Layout                          */
+/* Version 1: Compact Phone / Cover Screen Layout (~265dp total height)    */
 /* ----------------------------------------------------------------------- */
 
 @Composable
 private fun TransaksiCompactLayout(
-    projects: List<Project>,
     selectedProject: Project?,
-    onSelectProject: (Project) -> Unit,
+    projectDropdownOpen: Boolean,
+    onToggleProjectDropdown: () -> Unit,
     amount: Long,
     onAmount: (Long) -> Unit,
     orderId: String,
@@ -920,39 +928,45 @@ private fun TransaksiCompactLayout(
 
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        InlineProjectDropdown(
-            projects = projects,
-            selectedProject = selectedProject,
-            onSelectProject = onSelectProject,
-        )
+        // Project + Invoice on the SAME compact row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            ProjectSelectorTrigger(
+                selectedProject = selectedProject,
+                expanded = projectDropdownOpen,
+                onClick = onToggleProjectDropdown,
+                modifier = Modifier.weight(1f),
+            )
+            InlineOrderIdField(
+                orderId = orderId,
+                isEditing = isEditingOrderId,
+                onToggleEdit = onToggleOrderIdEdit,
+                onClear = onClearOrderId,
+                modifier = Modifier.weight(1f),
+            )
+        }
 
-        InlineOrderIdField(
-            orderId = orderId,
-            isEditing = isEditingOrderId,
-            onToggleEdit = onToggleOrderIdEdit,
-            onClear = onClearOrderId,
-        )
-
-        NominalBox(
-            amount = amount,
-            onReset = {
-                isPresetSelected = false
-                onAmount(0L)
-            },
-        )
-
-        QuickNominalChips(
-            amount = amount,
-            onSelectPreset = { preset ->
-                isPresetSelected = true
-                onAmount(preset)
-            },
-        )
-
-        // When typing Order ID, hide only the numpad so the real QWERTY keyboard sits right below!
         if (!isEditingOrderId) {
+            NominalBox(
+                amount = amount,
+                onReset = {
+                    isPresetSelected = false
+                    onAmount(0L)
+                },
+            )
+
+            QuickNominalChips(
+                amount = amount,
+                onSelectPreset = { preset ->
+                    isPresetSelected = true
+                    onAmount(preset)
+                },
+            )
+
             SleekAmountNumpad(
                 amount = amount,
                 isPresetSelected = isPresetSelected,
@@ -960,7 +974,7 @@ private fun TransaksiCompactLayout(
                     isPresetSelected = fromPreset
                     onAmount(newAmount)
                 },
-                keyHeightDp = 34,
+                keyHeightDp = 27,
             )
 
             PrimaryButton(
@@ -978,9 +992,9 @@ private fun TransaksiCompactLayout(
 
 @Composable
 private fun TransaksiWideFoldableLayout(
-    projects: List<Project>,
     selectedProject: Project?,
-    onSelectProject: (Project) -> Unit,
+    projectDropdownOpen: Boolean,
+    onToggleProjectDropdown: () -> Unit,
     amount: Long,
     onAmount: (Long) -> Unit,
     orderId: String,
@@ -999,55 +1013,55 @@ private fun TransaksiWideFoldableLayout(
     var isPresetSelected by remember { mutableStateOf(false) }
 
     if (isEditingOrderId) {
-        // When typing Order ID on Z Fold 7, show Project + Order ID cleanly above the split QWERTY keyboard
-        Column(
+        Row(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                InlineProjectDropdown(
-                    projects = projects,
-                    selectedProject = selectedProject,
-                    onSelectProject = onSelectProject,
-                    modifier = Modifier.weight(1f),
-                )
-                InlineOrderIdField(
-                    orderId = orderId,
-                    isEditing = true,
-                    onToggleEdit = onToggleOrderIdEdit,
-                    onClear = onClearOrderId,
-                    modifier = Modifier.weight(1f),
-                )
-            }
+            ProjectSelectorTrigger(
+                selectedProject = selectedProject,
+                expanded = projectDropdownOpen,
+                onClick = onToggleProjectDropdown,
+                modifier = Modifier.weight(1f),
+            )
+            InlineOrderIdField(
+                orderId = orderId,
+                isEditing = true,
+                onToggleEdit = onToggleOrderIdEdit,
+                onClear = onClearOrderId,
+                modifier = Modifier.weight(1f),
+            )
         }
         return
     }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top,
     ) {
         // Left Pane: Project + Order ID + Nominal + Quick Chips + Create
         Column(
             modifier = Modifier.weight(1.08f),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            InlineProjectDropdown(
-                projects = projects,
-                selectedProject = selectedProject,
-                onSelectProject = onSelectProject,
-            )
-
-            InlineOrderIdField(
-                orderId = orderId,
-                isEditing = false,
-                onToggleEdit = onToggleOrderIdEdit,
-                onClear = onClearOrderId,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                ProjectSelectorTrigger(
+                    selectedProject = selectedProject,
+                    expanded = projectDropdownOpen,
+                    onClick = onToggleProjectDropdown,
+                    modifier = Modifier.weight(1f),
+                )
+                InlineOrderIdField(
+                    orderId = orderId,
+                    isEditing = false,
+                    onToggleEdit = onToggleOrderIdEdit,
+                    onClear = onClearOrderId,
+                    modifier = Modifier.weight(1f),
+                )
+            }
 
             NominalBox(
                 amount = amount,
@@ -1090,7 +1104,7 @@ private fun TransaksiWideFoldableLayout(
                         isPresetSelected = fromPreset
                         onAmount(newAmount)
                     },
-                    keyHeightDp = 42,
+                    keyHeightDp = 36,
                 )
             }
         }
@@ -1116,36 +1130,36 @@ private fun LinkReady(
         else -> "Menunggu pembayaran"
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(p.background, RoundedCornerShape(AulaaTheme.radius))
                 .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+                .padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
-                        .size(22.dp)
+                        .size(20.dp)
                         .background(p.brandTint, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("✓", color = p.brandLight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("✓", color = p.brandLight, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(7.dp))
                 Text(
                     text = "Link pembayaran siap",
                     color = p.foreground,
-                    fontSize = 14.sp,
+                    fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = if (checkingStatus) "Mengecek…" else "Cek status ↻",
                     color = p.brandLight,
-                    fontSize = 11.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.clickable(enabled = !checkingStatus) { onCheckStatus() },
                 )
@@ -1154,7 +1168,7 @@ private fun LinkReady(
             Text(
                 text = "Status: $statusLabel",
                 color = p.mutedForeground,
-                fontSize = 11.5.sp,
+                fontSize = 11.sp,
             )
 
             Box(
@@ -1168,7 +1182,7 @@ private fun LinkReady(
                 Text(
                     text = link.payUrl.removePrefix("https://"),
                     color = p.foreground,
-                    fontSize = 12.5.sp,
+                    fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1178,7 +1192,7 @@ private fun LinkReady(
                 Text(
                     text = formatIdr(link.amount),
                     color = p.foreground,
-                    fontSize = 12.5.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -1191,7 +1205,7 @@ private fun LinkReady(
                 Text(
                     text = metaParts.joinToString("  ·  "),
                     color = p.mutedForeground,
-                    fontSize = 11.sp,
+                    fontSize = 10.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -1226,7 +1240,7 @@ private fun formatTimestampShort(raw: String): String {
 }
 
 /* ----------------------------------------------------------------------- */
-/* Katalog Produk Tab (In-Place Search + Keyboard Below)                   */
+/* Katalog Produk Tab (With Product Images & In-Place Search)              */
 /* ----------------------------------------------------------------------- */
 
 @Composable
@@ -1241,21 +1255,21 @@ private fun ProdukTab(
     onSend: (Product) -> Unit,
 ) {
     val p = AulaaTheme.palette
-    val maxListHeight = if (isKeyboardOpen) 115.dp else 210.dp
+    val maxListHeight = if (isKeyboardOpen) 96.dp else 185.dp
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // In-place search field
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .background(p.background, RoundedCornerShape(AulaaTheme.radius))
+                .height(34.dp)
+                .background(p.background, RoundedCornerShape(8.dp))
                 .border(
                     BorderStroke(1.dp, if (isKeyboardOpen) p.brandMid else p.border),
-                    RoundedCornerShape(AulaaTheme.radius),
+                    RoundedCornerShape(8.dp),
                 )
                 .clickable { onToggleSearch() }
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 10.dp),
         ) {
             Text(
                 text = when {
@@ -1265,7 +1279,7 @@ private fun ProdukTab(
                     else -> "Cari produk…"
                 },
                 color = if (search.isEmpty() && !isKeyboardOpen) p.mutedForeground else p.foreground,
-                fontSize = 13.sp,
+                fontSize = 12.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
@@ -1274,23 +1288,23 @@ private fun ProdukTab(
                 Text(
                     text = "✕",
                     color = p.mutedForeground,
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
                     modifier = Modifier
                         .clickable { onClearSearch() }
-                        .padding(horizontal = 4.dp, vertical = 2.dp),
+                        .padding(horizontal = 4.dp),
                 )
             }
             if (isKeyboardOpen) {
-                Spacer(Modifier.width(6.dp))
+                Spacer(Modifier.width(4.dp))
                 Text(
-                    text = "Selesai",
+                    text = "OK",
                     color = p.onBrand,
-                    fontSize = 11.sp,
+                    fontSize = 10.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
-                        .background(p.brandDeep, RoundedCornerShape(6.dp))
+                        .background(p.brandDeep, RoundedCornerShape(5.dp))
                         .clickable { onToggleSearch() }
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
                 )
             }
         }
@@ -1299,13 +1313,13 @@ private fun ProdukTab(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(90.dp),
+                    .height(80.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = if (loading) "Memuat katalog produk…" else "Belum ada produk yang cocok.",
                     color = p.mutedForeground,
-                    fontSize = 12.5.sp,
+                    fontSize = 12.sp,
                 )
             }
         } else if (isWideScreen) {
@@ -1314,8 +1328,8 @@ private fun ProdukTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = maxListHeight),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 items(products, key = { it.id }) { prod ->
                     ProductRow(prod = prod, onSend = { onSend(prod) })
@@ -1326,7 +1340,7 @@ private fun ProdukTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = maxListHeight),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 items(products, key = { it.id }) { prod ->
                     ProductRow(prod = prod, onSend = { onSend(prod) })
@@ -1342,35 +1356,56 @@ private fun ProductRow(
     onSend: () -> Unit,
 ) {
     val p = AulaaTheme.palette
+    var thumbnail by remember(prod.imageUrl) {
+        mutableStateOf(prod.imageUrl?.let { ProductThumbnailCache.get(it) })
+    }
+    LaunchedEffect(prod.imageUrl) {
+        val url = prod.imageUrl
+        if (!url.isNullOrBlank() && thumbnail == null) {
+            thumbnail = ProductThumbnailCache.load(url)
+        }
+    }
+
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
+            .background(p.background, RoundedCornerShape(8.dp))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
             .clickable { onSend() }
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 9.dp, vertical = 6.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .background(p.muted, RoundedCornerShape(8.dp))
-                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp)),
+                .size(34.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .background(p.muted)
+                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp)),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = prod.initial,
-                color = p.foreground,
-                fontSize = 13.5.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            val bmp = thumbnail
+            if (bmp != null) {
+                Image(
+                    bitmap = bmp,
+                    contentDescription = prod.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Text(
+                    text = prod.initial,
+                    color = p.foreground,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(9.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = prod.name,
                 color = p.foreground,
-                fontSize = 13.sp,
+                fontSize = 12.5.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1379,7 +1414,7 @@ private fun ProductRow(
             Text(
                 text = "${prod.priceLabel}$stockSubtitle",
                 color = p.mutedForeground,
-                fontSize = 11.5.sp,
+                fontSize = 11.sp,
                 maxLines = 1,
             )
         }
@@ -1387,13 +1422,13 @@ private fun ProductRow(
         Text(
             text = "Kirim",
             color = p.foreground,
-            fontSize = 11.5.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier
-                .background(p.muted, RoundedCornerShape(7.dp))
-                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp))
+                .background(p.muted, RoundedCornerShape(6.dp))
+                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(6.dp))
                 .clickable { onSend() }
-                .padding(horizontal = 11.dp, vertical = 5.dp),
+                .padding(horizontal = 10.dp, vertical = 4.dp),
         )
     }
 }
@@ -1413,13 +1448,13 @@ private fun UnpairedPrompt(
             .fillMaxWidth()
             .background(p.background, RoundedCornerShape(AulaaTheme.radius))
             .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Text(
             text = if (isRevoked) "Perangkat tidak lagi terhubung" else "Hubungkan dengan akun Merchant Aulaa",
             color = p.foreground,
-            fontSize = 14.5.sp,
+            fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
@@ -1429,8 +1464,8 @@ private fun UnpairedPrompt(
                 "Buka Dashboard Web Aulaa → Account Settings → Keyboard devices, lalu scan QR atau klaim kode pairing 8 karakter."
             },
             color = p.mutedForeground,
-            fontSize = 12.sp,
-            lineHeight = 17.sp,
+            fontSize = 11.5.sp,
+            lineHeight = 16.sp,
         )
         if (onOpenPairing != null) {
             PrimaryButton(
@@ -1449,19 +1484,19 @@ private fun ErrorBanner(message: String, onDismiss: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .background(p.muted, RoundedCornerShape(8.dp))
-            .border(BorderStroke(1.dp, Color(0x66EF4444)), RoundedCornerShape(8.dp))
+            .background(p.muted, RoundedCornerShape(7.dp))
+            .border(BorderStroke(1.dp, Color(0x66EF4444)), RoundedCornerShape(7.dp))
             .clickable { onDismiss() }
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .padding(horizontal = 9.dp, vertical = 6.dp),
     ) {
         Text(
             text = message,
             color = p.foreground,
-            fontSize = 11.5.sp,
+            fontSize = 11.sp,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(6.dp))
-        Text("✕", color = p.mutedForeground, fontSize = 11.5.sp)
+        Text("✕", color = p.mutedForeground, fontSize = 11.sp)
     }
 }
 
@@ -1470,13 +1505,13 @@ private fun IconSquare(glyph: String, onClick: () -> Unit) {
     val p = AulaaTheme.palette
     Box(
         modifier = Modifier
-            .size(28.dp)
-            .background(p.background, RoundedCornerShape(7.dp))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp))
+            .size(26.dp)
+            .background(p.background, RoundedCornerShape(6.dp))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(6.dp))
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, color = p.mutedForeground, fontSize = 12.5.sp)
+        Text(glyph, color = p.mutedForeground, fontSize = 12.sp)
     }
 }
 
@@ -1484,31 +1519,29 @@ private fun IconSquare(glyph: String, onClick: () -> Unit) {
 private fun SleekTabs(
     tab: Tab,
     onSelect: (Tab) -> Unit,
-    fillWidth: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val p = AulaaTheme.palette
     Row(
         modifier = modifier
-            .background(p.background, RoundedCornerShape(9.dp))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(9.dp))
-            .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
+            .background(p.background, RoundedCornerShape(7.dp))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp))
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Tab.entries.forEach { t ->
             val on = t == tab
             Box(
                 modifier = Modifier
-                    .then(if (fillWidth) Modifier.weight(1f) else Modifier)
-                    .background(if (on) p.muted else Color.Transparent, RoundedCornerShape(6.dp))
+                    .background(if (on) p.muted else Color.Transparent, RoundedCornerShape(5.dp))
                     .clickable { onSelect(t) }
-                    .padding(horizontal = 14.dp, vertical = 5.dp),
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = t.label,
                     color = if (on) p.foreground else p.mutedForeground,
-                    fontSize = 12.sp,
+                    fontSize = 11.5.sp,
                     fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
                 )
@@ -1528,14 +1561,14 @@ private fun PrimaryButton(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(42.dp)
+            .height(36.dp)
             .background(
                 brush = if (enabled) {
                     Brush.linearGradient(listOf(p.brandMid, p.brandDeep))
                 } else {
                     SolidColor(p.muted)
                 },
-                shape = RoundedCornerShape(AulaaTheme.radius),
+                shape = RoundedCornerShape(8.dp),
             )
             .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center,
@@ -1543,7 +1576,7 @@ private fun PrimaryButton(
         Text(
             text = text,
             color = if (enabled) p.onBrand else p.mutedForeground,
-            fontSize = 13.5.sp,
+            fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
         )
     }
@@ -1559,16 +1592,16 @@ private fun OutlineButton(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(42.dp)
-            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
+            .height(36.dp)
+            .background(p.background, RoundedCornerShape(8.dp))
+            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
             color = p.foreground,
-            fontSize = 13.sp,
+            fontSize = 12.5.sp,
             fontWeight = FontWeight.Medium,
         )
     }
