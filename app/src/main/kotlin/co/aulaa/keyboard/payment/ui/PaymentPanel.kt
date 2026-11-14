@@ -39,7 +39,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,6 +59,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -82,10 +82,13 @@ import dev.patrickgold.florisboard.ime.keyboard3.ImeActions
 import dev.patrickgold.florisboard.ime.keyboard3.LocalImeController
 import dev.patrickgold.florisboard.ime.keyboard3.touch.InputShiftState
 import dev.patrickgold.florisboard.ime.keyboard3.ui.ImeKeyboardBox
+import dev.patrickgold.florisboard.ime.theme.FlorisImeUi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.florisboard.lib.snygg.SnyggSelector
+import org.florisboard.lib.snygg.ui.rememberSnyggThemeQuery
 import org.k3lp.lib.text.K3Descriptor
 import org.k3lp.lib.text.K3String
 import java.net.HttpURLConnection
@@ -107,6 +110,59 @@ private val quickNominals = listOf(50_000L, 100_000L, 150_000L, 200_000L, 500_00
 
 private val LiveDotColor = Color(0xFF2196F3)
 private val SandboxDotColor = Color(0xFFEF4444)
+
+private data class KeyboardPanelTokens(
+    val windowBg: Color,
+    val keyBg: Color,
+    val keyAltBg: Color,
+    val inputBg: Color,
+    val fg: Color,
+    val mutedFg: Color,
+    val border: Color,
+    val keyShape: Shape,
+    val brandMid: Color,
+    val brandDeep: Color,
+    val brandLight: Color,
+    val onBrand: Color,
+    val brandTint: Color,
+)
+
+@Composable
+private fun rememberKeyboardPanelTokens(): KeyboardPanelTokens {
+    val p = AulaaTheme.palette
+    val windowStyle = rememberSnyggThemeQuery(FlorisImeUi.Window.elementName)
+    val keyStyle = rememberSnyggThemeQuery(FlorisImeUi.Key.elementName)
+    val keyPressedStyle = rememberSnyggThemeQuery(FlorisImeUi.Key.elementName, selector = SnyggSelector.PRESSED)
+    val keyHintStyle = rememberSnyggThemeQuery(FlorisImeUi.KeyHint.elementName)
+
+    val windowBg = windowStyle.background(default = p.keyboardBackground)
+    val keyBg = keyStyle.background(default = p.key)
+    val keyAltBg = keyPressedStyle.background(default = p.keyAlt)
+    val fg = keyStyle.foreground(default = p.keyForeground)
+    val mutedFg = keyHintStyle.foreground(default = fg.copy(alpha = 0.62f))
+    val keyShape = keyStyle.shape()
+    val isDark = windowBg.red < 0.35f && windowBg.green < 0.35f && windowBg.blue < 0.35f
+    val inputBg = if (isDark) keyBg.copy(alpha = 0.52f) else keyBg
+    val border = fg.copy(alpha = if (isDark) 0.12f else 0.10f)
+
+    return remember(windowBg, keyBg, keyAltBg, inputBg, fg, mutedFg, border, keyShape, p) {
+        KeyboardPanelTokens(
+            windowBg = windowBg,
+            keyBg = keyBg,
+            keyAltBg = keyAltBg,
+            inputBg = inputBg,
+            fg = fg,
+            mutedFg = mutedFg,
+            border = border,
+            keyShape = keyShape,
+            brandMid = p.brandMid,
+            brandDeep = p.brandDeep,
+            brandLight = p.brandLight,
+            onBrand = p.onBrand,
+            brandTint = p.brandTint,
+        )
+    }
+}
 
 private object ProductThumbnailCache {
     private val cache = LruCache<String, ImageBitmap>(60)
@@ -166,7 +222,7 @@ fun PaymentPanel(
     pairingStore: PairingStore? = null,
     onOpenPairing: (() -> Unit)? = null,
 ) {
-    val p = AulaaTheme.palette
+    val t = rememberKeyboardPanelTokens()
     val scope = rememberCoroutineScope()
     val imeController = LocalImeController.current
 
@@ -415,66 +471,90 @@ fun PaymentPanel(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(p.card, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
+            .background(t.windowBg)
             .padding(top = 8.dp),
     ) {
         BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 10.dp),
         ) {
             val isWideScreen = maxWidth >= 540.dp
 
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
-                    // ---- Compact Single Header Row: Brand + Tabs + Refresh + Close ----
+                    // ---- Header Row: Logo + Aulaa + Merchant Name + Actions ----
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        AulaaBrandMark(size = 20.dp, showContainer = false)
-                        Spacer(Modifier.width(6.dp))
+                        AulaaBrandMark(size = 22.dp, showContainer = false)
+                        Spacer(Modifier.width(7.dp))
                         Text(
                             text = "Aulaa",
-                            color = p.foreground,
-                            fontSize = 13.5.sp,
+                            color = t.fg,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
                         )
-                        Spacer(Modifier.weight(1f))
+                        if (session != null && isPaired && !tokenRevoked) {
+                            Text(
+                                text = "  ·  ${session.merchant.name}",
+                                color = t.mutedFg,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
 
                         if (isPaired && !tokenRevoked) {
-                            SleekTabs(
-                                tab = tab,
-                                onSelect = {
-                                    tab = it
-                                    activeTextField = null
-                                    projectDropdownOpen = false
-                                    errorMessage = null
-                                    if (it == Tab.Transaksi && createdLink == null) screen = Screen.Form
-                                },
+                            IconSquare(
+                                glyph = if (loadingData) "…" else "↻",
+                                t = t,
+                                onClick = { loadMerchantData() },
                             )
                             Spacer(Modifier.width(6.dp))
-                            IconSquare(if (loadingData) "…" else "↻", onClick = { loadMerchantData() })
-                            Spacer(Modifier.width(5.dp))
                         }
-                        IconSquare("✕", onClick = onClose)
+                        IconSquare(
+                            glyph = "✕",
+                            t = t,
+                            onClick = onClose,
+                        )
                     }
 
                     if (!isPaired || tokenRevoked) {
                         UnpairedPrompt(
                             isRevoked = tokenRevoked,
+                            t = t,
                             onOpenPairing = onOpenPairing,
                         )
                         Spacer(Modifier.height(6.dp))
                         return@BoxWithConstraints
                     }
 
+                    // ---- Dedicated Tabs Row (separated from logo row) ----
+                    SleekTabs(
+                        tab = tab,
+                        t = t,
+                        onSelect = {
+                            tab = it
+                            activeTextField = null
+                            projectDropdownOpen = false
+                            errorMessage = null
+                            if (it == Tab.Transaksi && createdLink == null) screen = Screen.Form
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
                     if (errorMessage != null) {
                         ErrorBanner(
                             message = errorMessage!!,
+                            t = t,
                             onDismiss = { errorMessage = null },
                         )
                     }
@@ -483,6 +563,7 @@ fun PaymentPanel(
                         Tab.Transaksi -> {
                             if (isWideScreen) {
                                 TransaksiWideFoldableLayout(
+                                    t = t,
                                     selectedProject = selectedProject,
                                     projectDropdownOpen = projectDropdownOpen,
                                     onToggleProjectDropdown = {
@@ -518,6 +599,7 @@ fun PaymentPanel(
                                 if (screen == Screen.Ready && createdLink != null) {
                                     LinkReady(
                                         link = createdLink!!,
+                                        t = t,
                                         checkingStatus = checkingStatus,
                                         onCheckStatus = { triggerCheckStatus() },
                                         onCommit = {
@@ -531,6 +613,7 @@ fun PaymentPanel(
                                     )
                                 } else {
                                     TransaksiCompactLayout(
+                                        t = t,
                                         selectedProject = selectedProject,
                                         projectDropdownOpen = projectDropdownOpen,
                                         onToggleProjectDropdown = {
@@ -554,6 +637,7 @@ fun PaymentPanel(
 
                         Tab.Produk -> {
                             ProdukTab(
+                                t = t,
                                 isWideScreen = isWideScreen,
                                 isKeyboardOpen = activeTextField == ActiveTextField.ProductSearch,
                                 products = products,
@@ -574,9 +658,8 @@ fun PaymentPanel(
                     }
                 }
 
-                // ---- In-Panel Floating Project Dropdown Overlay (scrollable, never increases IME height, never uses PopupWindow) ----
+                // ---- In-Panel Floating Project Dropdown Overlay (scrollable, matches keyboard theme) ----
                 if (projectDropdownOpen && projects.isNotEmpty() && tab == Tab.Transaksi) {
-                    // Dismiss scrim inside the panel
                     Box(
                         modifier = Modifier
                             .matchParentSize()
@@ -589,13 +672,13 @@ fun PaymentPanel(
                     Column(
                         modifier = Modifier
                             .align(Alignment.TopStart)
-                            .padding(top = 72.dp)
+                            .padding(top = 104.dp)
                             .fillMaxWidth(if (isWideScreen) 0.52f else 1f)
                             .heightIn(max = 160.dp)
                             .zIndex(10f)
-                            .shadow(10.dp, RoundedCornerShape(AulaaTheme.radius))
-                            .background(p.card, RoundedCornerShape(AulaaTheme.radius))
-                            .border(BorderStroke(1.dp, p.brandMid), RoundedCornerShape(AulaaTheme.radius))
+                            .shadow(8.dp, t.keyShape)
+                            .background(t.windowBg, t.keyShape)
+                            .border(BorderStroke(1.dp, t.brandMid), t.keyShape)
                             .verticalScroll(rememberScrollState()),
                     ) {
                         projects.forEachIndexed { index, prj ->
@@ -605,14 +688,14 @@ fun PaymentPanel(
                                     Modifier
                                         .fillMaxWidth()
                                         .height(1.dp)
-                                        .background(p.border),
+                                        .background(t.border),
                                 )
                             }
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(if (isSelected) p.muted else Color.Transparent)
+                                    .background(if (isSelected) t.keyAltBg else Color.Transparent)
                                     .clickable {
                                         projectDropdownOpen = false
                                         selectedProject = prj
@@ -624,7 +707,7 @@ fun PaymentPanel(
                                 Spacer(Modifier.width(8.dp))
                                 Text(
                                     text = prj.displayLabel(),
-                                    color = p.foreground,
+                                    color = t.fg,
                                     fontSize = 12.5.sp,
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                                     maxLines = 1,
@@ -634,7 +717,7 @@ fun PaymentPanel(
                                 if (isSelected) {
                                     Text(
                                         text = "✓",
-                                        color = p.brandLight,
+                                        color = t.brandLight,
                                         fontSize = 12.5.sp,
                                         fontWeight = FontWeight.Bold,
                                     )
@@ -646,7 +729,7 @@ fun PaymentPanel(
             }
         }
 
-        // In-place keyboard shown directly underneath when typing Order ID or Product Search
+        // In-place keyboard shown directly underneath when typing Nama Invoice or Cari Produk
         if (activeTextField != null) {
             Spacer(Modifier.height(4.dp))
             ImeKeyboardBox()
@@ -657,29 +740,29 @@ fun PaymentPanel(
 }
 
 /* ----------------------------------------------------------------------- */
-/* Compact Project Selector Trigger & Order ID Trigger                     */
+/* Project Selector Trigger & Nama Invoice (Opsional) Field                */
 /* ----------------------------------------------------------------------- */
 
 @Composable
 private fun ProjectSelectorTrigger(
     selectedProject: Project?,
     expanded: Boolean,
+    t: KeyboardPanelTokens,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val p = AulaaTheme.palette
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(34.dp)
-            .background(p.background, RoundedCornerShape(8.dp))
+            .height(36.dp)
+            .background(t.keyBg, t.keyShape)
             .border(
-                BorderStroke(1.dp, if (expanded) p.brandMid else p.border),
-                RoundedCornerShape(8.dp),
+                BorderStroke(1.dp, if (expanded) t.brandMid else t.border),
+                t.keyShape,
             )
             .clickable { onClick() }
-            .padding(horizontal = 9.dp),
+            .padding(horizontal = 10.dp),
     ) {
         if (selectedProject != null) {
             ProjectEnvironmentDot(isProd = selectedProject.isProd)
@@ -687,7 +770,7 @@ private fun ProjectSelectorTrigger(
         }
         Text(
             text = selectedProject?.displayLabel() ?: "Pilih project",
-            color = p.foreground,
+            color = t.fg,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
@@ -697,7 +780,7 @@ private fun ProjectSelectorTrigger(
         Spacer(Modifier.width(4.dp))
         Text(
             text = if (expanded) "▴" else "▾",
-            color = p.mutedForeground,
+            color = t.mutedFg,
             fontSize = 11.sp,
         )
     }
@@ -707,32 +790,32 @@ private fun ProjectSelectorTrigger(
 private fun InlineOrderIdField(
     orderId: String,
     isEditing: Boolean,
+    t: KeyboardPanelTokens,
     onToggleEdit: () -> Unit,
     onClear: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val p = AulaaTheme.palette
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(34.dp)
-            .background(p.background, RoundedCornerShape(8.dp))
+            .height(36.dp)
+            .background(t.inputBg, t.keyShape)
             .border(
-                BorderStroke(1.dp, if (isEditing) p.brandMid else p.border),
-                RoundedCornerShape(8.dp),
+                BorderStroke(1.dp, if (isEditing) t.brandMid else t.border),
+                t.keyShape,
             )
             .clickable { onToggleEdit() }
-            .padding(horizontal = 9.dp),
+            .padding(horizontal = 10.dp),
     ) {
         Text(
             text = when {
                 isEditing && orderId.isEmpty() -> "|"
                 isEditing -> "$orderId|"
                 orderId.isNotEmpty() -> orderId
-                else -> "Invoice (opsional)"
+                else -> "Nama Invoice (Opsional)"
             },
-            color = if (orderId.isEmpty() && !isEditing) p.mutedForeground else p.foreground,
+            color = if (orderId.isEmpty() && !isEditing) t.mutedFg else t.fg,
             fontSize = 12.sp,
             fontWeight = if (orderId.isNotEmpty()) FontWeight.Medium else FontWeight.Normal,
             maxLines = 1,
@@ -742,7 +825,7 @@ private fun InlineOrderIdField(
         if (orderId.isNotEmpty()) {
             Text(
                 text = "✕",
-                color = p.mutedForeground,
+                color = t.mutedFg,
                 fontSize = 11.sp,
                 modifier = Modifier
                     .clickable { onClear() }
@@ -750,51 +833,51 @@ private fun InlineOrderIdField(
             )
         }
         if (isEditing) {
-            Spacer(Modifier.width(3.dp))
+            Spacer(Modifier.width(4.dp))
             Text(
                 text = "OK",
-                color = p.onBrand,
+                color = t.onBrand,
                 fontSize = 10.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
-                    .background(p.brandDeep, RoundedCornerShape(5.dp))
+                    .background(t.brandDeep, t.keyShape)
                     .clickable { onToggleEdit() }
-                    .padding(horizontal = 7.dp, vertical = 2.dp),
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
             )
         }
     }
 }
 
 /* ----------------------------------------------------------------------- */
-/* Nominal Display + Quick Chips + Sleek Compact Numpad                    */
+/* Nominal Display + Quick Chips + Keyboard-Matched Numpad                 */
 /* ----------------------------------------------------------------------- */
 
 @Composable
 private fun NominalBox(
     amount: Long,
+    t: KeyboardPanelTokens,
     showNumpad: Boolean = false,
     onToggleNumpad: (() -> Unit)? = null,
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val p = AulaaTheme.palette
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
             .height(44.dp)
-            .background(p.background, RoundedCornerShape(8.dp))
+            .background(t.inputBg, t.keyShape)
             .border(
-                BorderStroke(1.dp, if (showNumpad) p.brandMid else p.border),
-                RoundedCornerShape(8.dp),
+                BorderStroke(1.dp, if (showNumpad) t.brandMid else t.border),
+                t.keyShape,
             )
             .then(if (onToggleNumpad != null) Modifier.clickable { onToggleNumpad() } else Modifier)
-            .padding(horizontal = 10.dp),
+            .padding(horizontal = 11.dp),
     ) {
-        Text("Rp ", color = p.mutedForeground, fontSize = 13.5.sp)
+        Text("Rp ", color = t.mutedFg, fontSize = 13.5.sp)
         Text(
             text = if (amount > 0L) formatIdr(amount).removePrefix("Rp").trim() else "0",
-            color = if (amount > 0L) p.foreground else p.mutedForeground,
+            color = if (amount > 0L) t.fg else t.mutedFg,
             fontSize = 20.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
@@ -802,20 +885,21 @@ private fun NominalBox(
         if (showNumpad && amount > 0L) {
             Text(
                 text = "Reset",
-                color = p.mutedForeground,
+                color = t.mutedFg,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
-                    .border(BorderStroke(1.dp, p.border), RoundedCornerShape(5.dp))
+                    .background(t.keyAltBg, t.keyShape)
+                    .border(BorderStroke(1.dp, t.border), t.keyShape)
                     .clickable { onReset() }
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
             )
             Spacer(Modifier.width(6.dp))
         }
         if (onToggleNumpad != null) {
             Text(
                 text = if (showNumpad) "Selesai ▴" else "Ketik nominal ▾",
-                color = p.brandLight,
+                color = t.brandLight,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
             )
@@ -826,9 +910,9 @@ private fun NominalBox(
 @Composable
 private fun QuickNominalChips(
     amount: Long,
+    t: KeyboardPanelTokens,
     onSelectPreset: (Long) -> Unit,
 ) {
-    val p = AulaaTheme.palette
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -839,17 +923,17 @@ private fun QuickNominalChips(
             val on = preset == amount
             Text(
                 text = formatIdr(preset),
-                color = if (on) p.foreground else p.mutedForeground,
+                color = if (on) t.fg else t.mutedFg,
                 fontSize = 11.5.sp,
                 fontWeight = if (on) FontWeight.SemiBold else FontWeight.Normal,
                 modifier = Modifier
-                    .background(if (on) p.muted else p.background, RoundedCornerShape(999.dp))
+                    .background(if (on) t.keyAltBg else t.keyBg, t.keyShape)
                     .border(
-                        BorderStroke(1.dp, if (on) p.brandMid else p.border),
-                        RoundedCornerShape(999.dp),
+                        BorderStroke(1.dp, if (on) t.brandMid else t.border),
+                        t.keyShape,
                     )
                     .clickable { onSelectPreset(preset) }
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                    .padding(horizontal = 10.dp, vertical = 5.dp),
             )
         }
     }
@@ -859,11 +943,11 @@ private fun QuickNominalChips(
 private fun SleekAmountNumpad(
     amount: Long,
     isPresetSelected: Boolean,
+    t: KeyboardPanelTokens,
     onAmountChange: (newAmount: Long, fromPreset: Boolean) -> Unit,
-    keyHeightDp: Int = 27,
+    keyHeightDp: Int = 30,
     modifier: Modifier = Modifier,
 ) {
-    val p = AulaaTheme.palette
     val maxAmount = 999_999_999L
 
     fun appendDigits(digits: String) {
@@ -895,10 +979,10 @@ private fun SleekAmountNumpad(
                             .weight(1f)
                             .height(keyHeightDp.dp)
                             .background(
-                                if (isAction) p.muted else p.key,
-                                RoundedCornerShape(6.dp),
+                                if (isAction) t.keyAltBg else t.keyBg,
+                                t.keyShape,
                             )
-                            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(6.dp))
+                            .border(BorderStroke(1.dp, t.border), t.keyShape)
                             .clickable {
                                 when (key) {
                                     "⌫" -> onAmountChange(amount / 10L, false)
@@ -910,8 +994,8 @@ private fun SleekAmountNumpad(
                     ) {
                         Text(
                             text = key,
-                            color = if (isAction) p.mutedForeground else p.keyForeground,
-                            fontSize = 13.sp,
+                            color = if (isAction) t.mutedFg else t.fg,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                         )
                     }
@@ -922,11 +1006,12 @@ private fun SleekAmountNumpad(
 }
 
 /* ----------------------------------------------------------------------- */
-/* Version 1: Compact Phone / Cover Screen Layout (~265dp total height)    */
+/* Version 1: Compact Phone / Cover Screen Layout                          */
 /* ----------------------------------------------------------------------- */
 
 @Composable
 private fun TransaksiCompactLayout(
+    t: KeyboardPanelTokens,
     selectedProject: Project?,
     projectDropdownOpen: Boolean,
     onToggleProjectDropdown: () -> Unit,
@@ -946,7 +1031,6 @@ private fun TransaksiCompactLayout(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        // Project + Invoice on the SAME compact row
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -954,12 +1038,14 @@ private fun TransaksiCompactLayout(
             ProjectSelectorTrigger(
                 selectedProject = selectedProject,
                 expanded = projectDropdownOpen,
+                t = t,
                 onClick = onToggleProjectDropdown,
                 modifier = Modifier.weight(1f),
             )
             InlineOrderIdField(
                 orderId = orderId,
                 isEditing = isEditingOrderId,
+                t = t,
                 onToggleEdit = onToggleOrderIdEdit,
                 onClear = onClearOrderId,
                 modifier = Modifier.weight(1f),
@@ -969,6 +1055,7 @@ private fun TransaksiCompactLayout(
         if (!isEditingOrderId) {
             NominalBox(
                 amount = amount,
+                t = t,
                 showNumpad = showNumpad,
                 onToggleNumpad = { showNumpad = !showNumpad },
                 onReset = {
@@ -981,6 +1068,7 @@ private fun TransaksiCompactLayout(
                 SleekAmountNumpad(
                     amount = amount,
                     isPresetSelected = isPresetSelected,
+                    t = t,
                     onAmountChange = { newAmount, fromPreset ->
                         isPresetSelected = fromPreset
                         onAmount(newAmount)
@@ -991,6 +1079,7 @@ private fun TransaksiCompactLayout(
 
             QuickNominalChips(
                 amount = amount,
+                t = t,
                 onSelectPreset = { preset ->
                     isPresetSelected = true
                     onAmount(preset)
@@ -1000,6 +1089,7 @@ private fun TransaksiCompactLayout(
             PrimaryButton(
                 text = if (creating) "Membuat…" else "Buat Link Pembayaran",
                 enabled = !creating && selectedProject != null && amount > 0L,
+                t = t,
                 onClick = onCreate,
             )
         }
@@ -1012,6 +1102,7 @@ private fun TransaksiCompactLayout(
 
 @Composable
 private fun TransaksiWideFoldableLayout(
+    t: KeyboardPanelTokens,
     selectedProject: Project?,
     projectDropdownOpen: Boolean,
     onToggleProjectDropdown: () -> Unit,
@@ -1030,7 +1121,7 @@ private fun TransaksiWideFoldableLayout(
     onCommit: () -> Unit,
     onAgain: () -> Unit,
 ) {
-    var isPresetSelected by remember { mutableStateOf(false) }
+    var isPresetSelected by remember { mutableStateOf(true) }
 
     if (isEditingOrderId) {
         Row(
@@ -1040,12 +1131,14 @@ private fun TransaksiWideFoldableLayout(
             ProjectSelectorTrigger(
                 selectedProject = selectedProject,
                 expanded = projectDropdownOpen,
+                t = t,
                 onClick = onToggleProjectDropdown,
                 modifier = Modifier.weight(1f),
             )
             InlineOrderIdField(
                 orderId = orderId,
                 isEditing = true,
+                t = t,
                 onToggleEdit = onToggleOrderIdEdit,
                 onClear = onClearOrderId,
                 modifier = Modifier.weight(1f),
@@ -1059,10 +1152,9 @@ private fun TransaksiWideFoldableLayout(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        // Left Pane: Project + Order ID + Nominal + Quick Chips + Create
         Column(
             modifier = Modifier.weight(1.08f),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1071,12 +1163,14 @@ private fun TransaksiWideFoldableLayout(
                 ProjectSelectorTrigger(
                     selectedProject = selectedProject,
                     expanded = projectDropdownOpen,
+                    t = t,
                     onClick = onToggleProjectDropdown,
                     modifier = Modifier.weight(1f),
                 )
                 InlineOrderIdField(
                     orderId = orderId,
                     isEditing = false,
+                    t = t,
                     onToggleEdit = onToggleOrderIdEdit,
                     onClear = onClearOrderId,
                     modifier = Modifier.weight(1f),
@@ -1085,6 +1179,7 @@ private fun TransaksiWideFoldableLayout(
 
             NominalBox(
                 amount = amount,
+                t = t,
                 showNumpad = true,
                 onReset = {
                     isPresetSelected = false
@@ -1094,6 +1189,7 @@ private fun TransaksiWideFoldableLayout(
 
             QuickNominalChips(
                 amount = amount,
+                t = t,
                 onSelectPreset = { preset ->
                     isPresetSelected = true
                     onAmount(preset)
@@ -1103,15 +1199,16 @@ private fun TransaksiWideFoldableLayout(
             PrimaryButton(
                 text = if (creating) "Membuat…" else "Buat Link Pembayaran",
                 enabled = !creating && selectedProject != null && amount > 0L,
+                t = t,
                 onClick = onCreate,
             )
         }
 
-        // Right Pane: Sleek Numpad or Link Ready
         Box(modifier = Modifier.weight(0.92f)) {
             if (screen == Screen.Ready && createdLink != null) {
                 LinkReady(
                     link = createdLink,
+                    t = t,
                     checkingStatus = checkingStatus,
                     onCheckStatus = onCheckStatus,
                     onCommit = onCommit,
@@ -1121,6 +1218,7 @@ private fun TransaksiWideFoldableLayout(
                 SleekAmountNumpad(
                     amount = amount,
                     isPresetSelected = isPresetSelected,
+                    t = t,
                     onAmountChange = { newAmount, fromPreset ->
                         isPresetSelected = fromPreset
                         onAmount(newAmount)
@@ -1139,12 +1237,12 @@ private fun TransaksiWideFoldableLayout(
 @Composable
 private fun LinkReady(
     link: PaymentLink,
+    t: KeyboardPanelTokens,
     checkingStatus: Boolean,
     onCheckStatus: () -> Unit,
     onCommit: () -> Unit,
     onAgain: () -> Unit,
 ) {
-    val p = AulaaTheme.palette
     val statusLabel = when (link.status.lowercase()) {
         "paid", "settled", "completed" -> "Lunas ✓"
         "expired", "cancelled", "canceled" -> "Kedaluwarsa"
@@ -1155,8 +1253,8 @@ private fun LinkReady(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
+                .background(t.inputBg, t.keyShape)
+                .border(BorderStroke(1.dp, t.border), t.keyShape)
                 .padding(10.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp),
         ) {
@@ -1164,22 +1262,22 @@ private fun LinkReady(
                 Box(
                     Modifier
                         .size(20.dp)
-                        .background(p.brandTint, CircleShape),
+                        .background(t.brandTint, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("✓", color = p.brandLight, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Text("✓", color = t.brandLight, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.width(7.dp))
                 Text(
                     text = "Link pembayaran siap",
-                    color = p.foreground,
+                    color = t.fg,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     text = if (checkingStatus) "Mengecek…" else "Cek status ↻",
-                    color = p.brandLight,
+                    color = t.brandLight,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.clickable(enabled = !checkingStatus) { onCheckStatus() },
@@ -1188,7 +1286,7 @@ private fun LinkReady(
 
             Text(
                 text = "Status: $statusLabel",
-                color = p.mutedForeground,
+                color = t.mutedFg,
                 fontSize = 11.sp,
             )
 
@@ -1196,13 +1294,13 @@ private fun LinkReady(
                 Modifier
                     .fillMaxWidth()
                     .height(1.dp)
-                    .background(p.border),
+                    .background(t.border),
             )
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = link.payUrl.removePrefix("https://"),
-                    color = p.foreground,
+                    color = t.fg,
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1,
@@ -1212,7 +1310,7 @@ private fun LinkReady(
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = formatIdr(link.amount),
-                    color = p.foreground,
+                    color = t.fg,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -1225,7 +1323,7 @@ private fun LinkReady(
             if (metaParts.isNotEmpty()) {
                 Text(
                     text = metaParts.joinToString("  ·  "),
-                    color = p.mutedForeground,
+                    color = t.mutedFg,
                     fontSize = 10.5.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -1239,12 +1337,14 @@ private fun LinkReady(
         ) {
             OutlineButton(
                 text = "Buat lagi",
+                t = t,
                 onClick = onAgain,
                 modifier = Modifier.weight(1f),
             )
             PrimaryButton(
                 text = "Tempel ke chat",
                 enabled = true,
+                t = t,
                 onClick = onCommit,
                 modifier = Modifier.weight(1.4f),
             )
@@ -1266,6 +1366,7 @@ private fun formatTimestampShort(raw: String): String {
 
 @Composable
 private fun ProdukTab(
+    t: KeyboardPanelTokens,
     isWideScreen: Boolean,
     isKeyboardOpen: Boolean,
     products: List<Product>,
@@ -1275,7 +1376,6 @@ private fun ProdukTab(
     onClearSearch: () -> Unit,
     onSend: (Product) -> Unit,
 ) {
-    val p = AulaaTheme.palette
     val maxListHeight = if (isKeyboardOpen) 96.dp else 185.dp
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1283,11 +1383,11 @@ private fun ProdukTab(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .height(34.dp)
-                .background(p.background, RoundedCornerShape(8.dp))
+                .height(36.dp)
+                .background(t.inputBg, t.keyShape)
                 .border(
-                    BorderStroke(1.dp, if (isKeyboardOpen) p.brandMid else p.border),
-                    RoundedCornerShape(8.dp),
+                    BorderStroke(1.dp, if (isKeyboardOpen) t.brandMid else t.border),
+                    t.keyShape,
                 )
                 .clickable { onToggleSearch() }
                 .padding(horizontal = 10.dp),
@@ -1299,7 +1399,7 @@ private fun ProdukTab(
                     search.isNotEmpty() -> search
                     else -> "Cari produk…"
                 },
-                color = if (search.isEmpty() && !isKeyboardOpen) p.mutedForeground else p.foreground,
+                color = if (search.isEmpty() && !isKeyboardOpen) t.mutedFg else t.fg,
                 fontSize = 12.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -1308,7 +1408,7 @@ private fun ProdukTab(
             if (search.isNotEmpty()) {
                 Text(
                     text = "✕",
-                    color = p.mutedForeground,
+                    color = t.mutedFg,
                     fontSize = 11.5.sp,
                     modifier = Modifier
                         .clickable { onClearSearch() }
@@ -1319,13 +1419,13 @@ private fun ProdukTab(
                 Spacer(Modifier.width(4.dp))
                 Text(
                     text = "OK",
-                    color = p.onBrand,
+                    color = t.onBrand,
                     fontSize = 10.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
-                        .background(p.brandDeep, RoundedCornerShape(5.dp))
+                        .background(t.brandDeep, t.keyShape)
                         .clickable { onToggleSearch() }
-                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                        .padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
         }
@@ -1339,7 +1439,7 @@ private fun ProdukTab(
             ) {
                 Text(
                     text = if (loading) "Memuat katalog produk…" else "Belum ada produk yang cocok.",
-                    color = p.mutedForeground,
+                    color = t.mutedFg,
                     fontSize = 12.sp,
                 )
             }
@@ -1353,7 +1453,7 @@ private fun ProdukTab(
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 items(products, key = { it.id }) { prod ->
-                    ProductRow(prod = prod, onSend = { onSend(prod) })
+                    ProductRow(prod = prod, t = t, onSend = { onSend(prod) })
                 }
             }
         } else {
@@ -1364,7 +1464,7 @@ private fun ProdukTab(
                 verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 items(products, key = { it.id }) { prod ->
-                    ProductRow(prod = prod, onSend = { onSend(prod) })
+                    ProductRow(prod = prod, t = t, onSend = { onSend(prod) })
                 }
             }
         }
@@ -1374,9 +1474,9 @@ private fun ProdukTab(
 @Composable
 private fun ProductRow(
     prod: Product,
+    t: KeyboardPanelTokens,
     onSend: () -> Unit,
 ) {
-    val p = AulaaTheme.palette
     var thumbnail by remember(prod.imageUrl) {
         mutableStateOf(prod.imageUrl?.let { ProductThumbnailCache.get(it) })
     }
@@ -1391,17 +1491,17 @@ private fun ProductRow(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .background(p.background, RoundedCornerShape(8.dp))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
+            .background(t.keyBg, t.keyShape)
+            .border(BorderStroke(1.dp, t.border), t.keyShape)
             .clickable { onSend() }
             .padding(horizontal = 9.dp, vertical = 6.dp),
     ) {
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .clip(RoundedCornerShape(7.dp))
-                .background(p.muted)
-                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp)),
+                .clip(t.keyShape)
+                .background(t.keyAltBg)
+                .border(BorderStroke(1.dp, t.border), t.keyShape),
             contentAlignment = Alignment.Center,
         ) {
             val bmp = thumbnail
@@ -1415,7 +1515,7 @@ private fun ProductRow(
             } else {
                 Text(
                     text = prod.initial,
-                    color = p.foreground,
+                    color = t.fg,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -1425,7 +1525,7 @@ private fun ProductRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = prod.name,
-                color = p.foreground,
+                color = t.fg,
                 fontSize = 12.5.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
@@ -1434,7 +1534,7 @@ private fun ProductRow(
             val stockSubtitle = if (prod.stock != null) " · Stok ${prod.stock}" else ""
             Text(
                 text = "${prod.priceLabel}$stockSubtitle",
-                color = p.mutedForeground,
+                color = t.mutedFg,
                 fontSize = 11.sp,
                 maxLines = 1,
             )
@@ -1442,12 +1542,12 @@ private fun ProductRow(
         Spacer(Modifier.width(8.dp))
         Text(
             text = "Kirim",
-            color = p.foreground,
+            color = t.fg,
             fontSize = 11.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier
-                .background(p.muted, RoundedCornerShape(6.dp))
-                .border(BorderStroke(1.dp, p.border), RoundedCornerShape(6.dp))
+                .background(t.keyAltBg, t.keyShape)
+                .border(BorderStroke(1.dp, t.border), t.keyShape)
                 .clickable { onSend() }
                 .padding(horizontal = 10.dp, vertical = 4.dp),
         )
@@ -1455,26 +1555,26 @@ private fun ProductRow(
 }
 
 /* ----------------------------------------------------------------------- */
-/* Unpaired / Revoked Prompt & Shared Sleek Components                     */
+/* Unpaired / Revoked Prompt & Shared Keyboard-Matched Components          */
 /* ----------------------------------------------------------------------- */
 
 @Composable
 private fun UnpairedPrompt(
     isRevoked: Boolean,
+    t: KeyboardPanelTokens,
     onOpenPairing: (() -> Unit)?,
 ) {
-    val p = AulaaTheme.palette
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(p.background, RoundedCornerShape(AulaaTheme.radius))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(AulaaTheme.radius))
+            .background(t.inputBg, t.keyShape)
+            .border(BorderStroke(1.dp, t.border), t.keyShape)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Text(
             text = if (isRevoked) "Perangkat tidak lagi terhubung" else "Hubungkan dengan akun Merchant Aulaa",
-            color = p.foreground,
+            color = t.fg,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
         )
@@ -1484,7 +1584,7 @@ private fun UnpairedPrompt(
             } else {
                 "Buka Dashboard Web Aulaa → Account Settings → Keyboard devices, lalu scan QR atau klaim kode pairing 8 karakter."
             },
-            color = p.mutedForeground,
+            color = t.mutedFg,
             fontSize = 11.5.sp,
             lineHeight = 16.sp,
         )
@@ -1492,6 +1592,7 @@ private fun UnpairedPrompt(
             PrimaryButton(
                 text = "Hubungkan Perangkat (Pairing)",
                 enabled = true,
+                t = t,
                 onClick = onOpenPairing,
             )
         }
@@ -1499,70 +1600,77 @@ private fun UnpairedPrompt(
 }
 
 @Composable
-private fun ErrorBanner(message: String, onDismiss: () -> Unit) {
-    val p = AulaaTheme.palette
+private fun ErrorBanner(
+    message: String,
+    t: KeyboardPanelTokens,
+    onDismiss: () -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .fillMaxWidth()
-            .background(p.muted, RoundedCornerShape(7.dp))
-            .border(BorderStroke(1.dp, Color(0x66EF4444)), RoundedCornerShape(7.dp))
+            .background(t.keyAltBg, t.keyShape)
+            .border(BorderStroke(1.dp, Color(0x66EF4444)), t.keyShape)
             .clickable { onDismiss() }
             .padding(horizontal = 9.dp, vertical = 6.dp),
     ) {
         Text(
             text = message,
-            color = p.foreground,
+            color = t.fg,
             fontSize = 11.sp,
             modifier = Modifier.weight(1f),
         )
         Spacer(Modifier.width(6.dp))
-        Text("✕", color = p.mutedForeground, fontSize = 11.sp)
+        Text("✕", color = t.mutedFg, fontSize = 11.sp)
     }
 }
 
 @Composable
-private fun IconSquare(glyph: String, onClick: () -> Unit) {
-    val p = AulaaTheme.palette
+private fun IconSquare(
+    glyph: String,
+    t: KeyboardPanelTokens,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
-            .size(26.dp)
-            .background(p.background, RoundedCornerShape(6.dp))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(6.dp))
+            .size(28.dp)
+            .background(t.keyBg, t.keyShape)
+            .border(BorderStroke(1.dp, t.border), t.keyShape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
-        Text(glyph, color = p.mutedForeground, fontSize = 12.sp)
+        Text(glyph, color = t.mutedFg, fontSize = 12.5.sp)
     }
 }
 
 @Composable
 private fun SleekTabs(
     tab: Tab,
+    t: KeyboardPanelTokens,
     onSelect: (Tab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val p = AulaaTheme.palette
     Row(
         modifier = modifier
-            .background(p.background, RoundedCornerShape(7.dp))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(7.dp))
-            .padding(2.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
+            .background(t.inputBg, t.keyShape)
+            .border(BorderStroke(1.dp, t.border), t.keyShape)
+            .padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        Tab.entries.forEach { t ->
-            val on = t == tab
+        Tab.entries.forEach { entry ->
+            val on = entry == tab
             Box(
                 modifier = Modifier
-                    .background(if (on) p.muted else Color.Transparent, RoundedCornerShape(5.dp))
-                    .clickable { onSelect(t) }
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                    .weight(1f)
+                    .background(if (on) t.keyBg else Color.Transparent, t.keyShape)
+                    .clickable { onSelect(entry) }
+                    .padding(vertical = 5.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = t.label,
-                    color = if (on) p.foreground else p.mutedForeground,
-                    fontSize = 11.5.sp,
+                    text = entry.label,
+                    color = if (on) t.fg else t.mutedFg,
+                    fontSize = 12.sp,
                     fontWeight = if (on) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
                 )
@@ -1575,28 +1683,28 @@ private fun SleekTabs(
 private fun PrimaryButton(
     text: String,
     enabled: Boolean,
+    t: KeyboardPanelTokens,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val p = AulaaTheme.palette
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(36.dp)
+            .height(38.dp)
             .background(
                 brush = if (enabled) {
-                    Brush.linearGradient(listOf(p.brandMid, p.brandDeep))
+                    Brush.linearGradient(listOf(t.brandMid, t.brandDeep))
                 } else {
-                    SolidColor(p.muted)
+                    SolidColor(t.keyAltBg)
                 },
-                shape = RoundedCornerShape(8.dp),
+                shape = t.keyShape,
             )
             .clickable(enabled = enabled) { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            color = if (enabled) p.onBrand else p.mutedForeground,
+            color = if (enabled) t.onBrand else t.mutedFg,
             fontSize = 13.sp,
             fontWeight = FontWeight.SemiBold,
         )
@@ -1606,22 +1714,22 @@ private fun PrimaryButton(
 @Composable
 private fun OutlineButton(
     text: String,
+    t: KeyboardPanelTokens,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val p = AulaaTheme.palette
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(36.dp)
-            .background(p.background, RoundedCornerShape(8.dp))
-            .border(BorderStroke(1.dp, p.border), RoundedCornerShape(8.dp))
+            .height(38.dp)
+            .background(t.keyBg, t.keyShape)
+            .border(BorderStroke(1.dp, t.border), t.keyShape)
             .clickable { onClick() },
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            color = p.foreground,
+            color = t.fg,
             fontSize = 12.5.sp,
             fontWeight = FontWeight.Medium,
         )
