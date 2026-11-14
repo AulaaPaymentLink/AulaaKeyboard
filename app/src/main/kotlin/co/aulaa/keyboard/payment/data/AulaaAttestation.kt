@@ -161,3 +161,4 @@ object AulaaAttestation {
         }.getOrNull()
     }
 }
+

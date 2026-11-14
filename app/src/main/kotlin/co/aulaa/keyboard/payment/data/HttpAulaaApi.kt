@@ -283,7 +283,7 @@ class HttpAulaaApi(
             return when (status) {
                 400 -> serverMessage ?: "Data perangkat atau format kode tidak valid (400)."
                 401 -> "Kode pairing salah, sudah dipakai, atau sudah kedaluwarsa (401)."
-                403 -> serverMessage ?: "Pairing ditolak (403): pastikan menggunakan APK resmi Aulaa (atau gunakan API Key Project jika build kustom), dan batas 10 perangkat belum penuh."
+                403 -> serverMessage ?: "Pairing ditolak (403): pastikan menggunakan APK rilis resmi Aulaa Keyboard, akun merchant aktif, dan batas 10 perangkat belum penuh."
                 429 -> "Terlalu banyak percobaan klaim gagal dari IP ini. Coba lagi nanti (429)."
                 else -> serverMessage ?: "Gagal klaim pairing (HTTP $status)."
             }

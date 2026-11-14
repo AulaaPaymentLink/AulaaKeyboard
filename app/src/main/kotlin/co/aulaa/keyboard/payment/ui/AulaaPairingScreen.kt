@@ -54,27 +54,17 @@ import androidx.compose.ui.unit.sp
 import co.aulaa.keyboard.payment.data.AulaaApi
 import co.aulaa.keyboard.payment.data.AulaaAttestation
 import co.aulaa.keyboard.payment.data.DEFAULT_API_BASE_URL
-import co.aulaa.keyboard.payment.data.DEFAULT_PAY_BASE_URL
-import co.aulaa.keyboard.payment.data.PairedDeviceInfo
-import co.aulaa.keyboard.payment.data.PairedMerchantInfo
 import co.aulaa.keyboard.payment.data.PairingSession
 import co.aulaa.keyboard.payment.data.PairingStore
-import co.aulaa.keyboard.payment.data.Project
 import co.aulaa.keyboard.payment.theme.AulaaTheme
 import kotlinx.coroutines.launch
-
-private enum class AuthMode { OfficialPairing, CustomApiKey }
 
 /**
  * Companion-app Pairing & Merchant Device Management screen.
  *
- * Supports two authentication paths:
- * 1. **Official Pairing (QR / 8-char code)**: Calls `POST /v1/keyboard/pairing/claim`
- *    with an Android Keystore Hardware Key Attestation proof (`version = 1`).
- *    Restricted by the backend to APKs signed by Aulaa's official release keystore.
- * 2. **Custom Project API Key (Self-Build / Developer)**: Allows developers who
- *    compile the open-source repo themselves to authenticate directly using their
- *    Project ID and Project API Key.
+ * Calls `POST /v1/keyboard/pairing/claim` with an Android Keystore Hardware Key
+ * Attestation proof (`version = 1`), ensuring only official Aulaa-signed APK
+ * releases can claim a pairing code.
  */
 @Composable
 fun AulaaPairingContent(
@@ -91,23 +81,12 @@ fun AulaaPairingContent(
     val apiBaseUrl by pairingStore.apiBaseUrlFlow.collectAsState()
     val apkCertSha256 = remember(context) { AulaaAttestation.getApkSigningCertSha256Hex(context) }
 
-    var authMode by remember { mutableStateOf(AuthMode.OfficialPairing) }
-
-    // Official pairing state
     var codeInput by remember(initialPairingCode) {
         mutableStateOf(extractCodeFromInput(initialPairingCode.orEmpty()))
     }
     var deviceNameInput by remember {
         mutableStateOf(defaultDeviceName())
     }
-
-    // Custom API key state (for self-built forks)
-    var customProjectId by remember { mutableStateOf("") }
-    var customProjectName by remember { mutableStateOf("") }
-    var customApiKey by remember { mutableStateOf("") }
-    var customPayBaseUrl by remember { mutableStateOf(DEFAULT_PAY_BASE_URL) }
-
-    // Server config state
     var serverUrlInput by remember(apiBaseUrl) {
         mutableStateOf(apiBaseUrl)
     }
@@ -151,37 +130,10 @@ fun AulaaPairingContent(
         }
     }
 
-    fun submitCustomApiKey() {
-        val prjId = customProjectId.trim()
-        val prjName = customProjectName.trim().ifBlank { "Project Kustom" }
-        val apiKey = customApiKey.trim()
-        if (prjId.isBlank() || apiKey.isBlank()) {
-            isError = true
-            statusMessage = "Project ID dan API Key Project wajib diisi."
-            return
-        }
-        pairingStore.setApiBaseUrl(serverUrlInput)
-        val customSession = PairingSession(
-            deviceToken = apiKey,
-            tokenType = "Bearer",
-            scopes = listOf("transactions:create", "transactions:read", "projects:read", "products:read"),
-            device = PairedDeviceInfo(id = "custom_api_key", name = "${defaultDeviceName()} (API Key)"),
-            merchant = PairedMerchantInfo(id = prjId, name = prjName),
-            projects = listOf(Project(id = prjId, name = prjName, status = "approved", isProd = true)),
-            payBaseUrl = customPayBaseUrl.trim().trimEnd('/').ifBlank { DEFAULT_PAY_BASE_URL },
-            apiBaseUrl = pairingStore.apiBaseUrl(),
-        )
-        pairingStore.saveSession(customSession)
-        customApiKey = ""
-        isError = false
-        statusMessage = "API Key Project disimpan untuk $prjName."
-    }
-
     // Auto-claim when opened via QR deep link `aulaa-keyboard://pair?code=ABCDEFGH`
     LaunchedEffect(initialPairingCode) {
         val codeFromQr = extractCodeFromInput(initialPairingCode.orEmpty())
         if (codeFromQr.isNotBlank()) {
-            authMode = AuthMode.OfficialPairing
             codeInput = codeFromQr
             submitClaim(codeFromQr)
         }
@@ -290,7 +242,7 @@ fun AulaaPairingContent(
             )
         }
 
-        // Claim / Custom API Key Card
+        // Claim Pairing Card
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -299,171 +251,59 @@ fun AulaaPairingContent(
                 .padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // Mode Switcher: Official Pairing vs Custom Project API Key
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(p.muted, RoundedCornerShape(9.dp))
-                    .border(BorderStroke(1.dp, p.border), RoundedCornerShape(9.dp))
-                    .padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                val modes = listOf(
-                    AuthMode.OfficialPairing to "Pairing Resmi (QR/Kode)",
-                    AuthMode.CustomApiKey to "API Key Project (Custom)",
+            Text(
+                text = if (session == null) "Hubungkan Perangkat Baru" else "Ganti / Hubungkan Ulang Perangkat",
+                color = p.foreground,
+                fontSize = 14.5.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Text(
+                text = "1. Buka Dashboard Web Aulaa → Pengaturan Akun → Perangkat Keyboard.\n" +
+                    "2. Klik \"Tambah Perangkat\" untuk mendapatkan kode 8 karakter atau scan QR.\n" +
+                    "3. Masukkan kode di bawah sebelum kedaluwarsa (3 menit).",
+                color = p.mutedForeground,
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                FieldLabel("KODE PAIRING (8 KARAKTER ATAU URI QR)")
+                PairingTextField(
+                    value = codeInput,
+                    onValueChange = { codeInput = extractCodeFromInput(it) },
+                    placeholder = "ABCD-EFGH",
+                    capitalization = KeyboardCapitalization.Characters,
                 )
-                modes.forEach { (mode, label) ->
-                    val selected = authMode == mode
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .background(
-                                if (selected) p.card else Color.Transparent,
-                                RoundedCornerShape(6.dp),
-                            )
-                            .clickable { authMode = mode }
-                            .padding(vertical = 7.dp, horizontal = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = label,
-                            color = if (selected) p.foreground else p.mutedForeground,
-                            fontSize = 11.5.sp,
-                            fontWeight = FontWeight.Medium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
             }
 
-            if (authMode == AuthMode.OfficialPairing) {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                FieldLabel("NAMA PERANGKAT (MAKS 100 KARAKTER)")
+                PairingTextField(
+                    value = deviceNameInput,
+                    onValueChange = { deviceNameInput = it.take(100) },
+                    placeholder = "mis. Pixel 8 Pro",
+                )
+            }
+
+            val canClaim = !claiming && codeInput.isNotBlank() && deviceNameInput.isNotBlank()
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
+                    .background(
+                        if (canClaim) Brush.linearGradient(listOf(p.brandMid, p.brandDeep))
+                        else SolidColor(p.muted),
+                        RoundedCornerShape(AulaaTheme.radius),
+                    )
+                    .clickable(enabled = canClaim) { submitClaim(codeInput) },
+                contentAlignment = Alignment.Center,
+            ) {
                 Text(
-                    text = if (session == null) "Hubungkan Perangkat Resmi" else "Ganti / Hubungkan Ulang Perangkat",
-                    color = p.foreground,
-                    fontSize = 14.5.sp,
+                    text = if (claiming) "Memverifikasi perangkat & kode…" else "Klaim & Hubungkan Perangkat",
+                    color = if (canClaim) p.onBrand else p.mutedForeground,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                 )
-                Text(
-                    text = "Khusus aplikasi rilisan resmi Aulaa (dilindungi Android Hardware Key Attestation v1).\n" +
-                        "1. Buka Dashboard Web Aulaa → Pengaturan Akun → Perangkat Keyboard.\n" +
-                        "2. Klik \"Tambah Perangkat\" untuk mendapatkan kode 8 karakter atau scan QR.\n" +
-                        "3. Masukkan kode di bawah sebelum kedaluwarsa (3 menit).",
-                    color = p.mutedForeground,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    FieldLabel("KODE PAIRING (8 KARAKTER ATAU URI QR)")
-                    PairingTextField(
-                        value = codeInput,
-                        onValueChange = { codeInput = extractCodeFromInput(it) },
-                        placeholder = "ABCD-EFGH",
-                        capitalization = KeyboardCapitalization.Characters,
-                    )
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    FieldLabel("NAMA PERANGKAT (MAKS 100 KARAKTER)")
-                    PairingTextField(
-                        value = deviceNameInput,
-                        onValueChange = { deviceNameInput = it.take(100) },
-                        placeholder = "mis. Pixel 8 Pro",
-                    )
-                }
-
-                val canClaim = !claiming && codeInput.isNotBlank() && deviceNameInput.isNotBlank()
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .background(
-                            if (canClaim) Brush.linearGradient(listOf(p.brandMid, p.brandDeep))
-                            else SolidColor(p.muted),
-                            RoundedCornerShape(AulaaTheme.radius),
-                        )
-                        .clickable(enabled = canClaim) { submitClaim(codeInput) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = if (claiming) "Memverifikasi perangkat & kode…" else "Klaim & Hubungkan Perangkat",
-                        color = if (canClaim) p.onBrand else p.mutedForeground,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            } else {
-                Text(
-                    text = "Gunakan API Key Project (Self-Build / Custom)",
-                    color = p.foreground,
-                    fontSize = 14.5.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = "Jika kamu meng-compile sendiri Aulaa Keyboard dari source code (bukan APK rilis resmi Aulaa), " +
-                        "fitur Pairing QR dibatasi oleh verifikasi sertifikat APK. Silakan gunakan Project ID dan API Key dari project kamu.",
-                    color = p.mutedForeground,
-                    fontSize = 12.sp,
-                    lineHeight = 17.sp,
-                )
-
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    FieldLabel("PROJECT ID (UUID)")
-                    PairingTextField(
-                        value = customProjectId,
-                        onValueChange = { customProjectId = it },
-                        placeholder = "mis. 550e8400-e29b-41d4-a716-446655440000",
-                    )
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    FieldLabel("NAMA PROJECT / TOKO")
-                    PairingTextField(
-                        value = customProjectName,
-                        onValueChange = { customProjectName = it },
-                        placeholder = "mis. Toko Lapis Rina",
-                    )
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    FieldLabel("API KEY PROJECT (BEARER TOKEN)")
-                    PairingTextField(
-                        value = customApiKey,
-                        onValueChange = { customApiKey = it },
-                        placeholder = "Masukkan API key project",
-                    )
-                }
-
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    FieldLabel("CHECKOUT BASE URL")
-                    PairingTextField(
-                        value = customPayBaseUrl,
-                        onValueChange = { customPayBaseUrl = it },
-                        placeholder = DEFAULT_PAY_BASE_URL,
-                    )
-                }
-
-                val canSaveCustom = customProjectId.isNotBlank() && customApiKey.isNotBlank()
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .background(
-                            if (canSaveCustom) Brush.linearGradient(listOf(p.brandMid, p.brandDeep))
-                            else SolidColor(p.muted),
-                            RoundedCornerShape(AulaaTheme.radius),
-                        )
-                        .clickable(enabled = canSaveCustom) { submitCustomApiKey() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text = "Simpan API Key Project",
-                        color = if (canSaveCustom) p.onBrand else p.mutedForeground,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
             }
 
             // Collapsible server URL & APK cert SHA-256 diagnostics
