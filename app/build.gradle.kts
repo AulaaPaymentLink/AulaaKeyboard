@@ -17,6 +17,7 @@
 import com.android.build.api.dsl.ApplicationExtension
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.agp.application)
@@ -100,6 +101,37 @@ configure<ApplicationExtension> {
         compose = true
     }
 
+    val localKeystoreProps = Properties().apply {
+        val propsFile = rootProject.file("keystore.properties")
+        if (propsFile.isFile) {
+            propsFile.inputStream().use { load(it) }
+        }
+    }
+    val releaseStoreFile = System.getenv("KEYSTORE_FILE")
+        ?: localKeystoreProps.getProperty("storeFile")
+    val releaseStorePassword = System.getenv("KEYSTORE_PASSWORD")
+        ?: localKeystoreProps.getProperty("storePassword")
+    val releaseKeyAlias = System.getenv("KEY_ALIAS")
+        ?: localKeystoreProps.getProperty("keyAlias")
+    val releaseKeyPassword = System.getenv("KEY_PASSWORD")
+        ?: localKeystoreProps.getProperty("keyPassword")
+    val hasReleaseSigning = !releaseStoreFile.isNullOrBlank() &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank() &&
+        rootProject.file(releaseStoreFile).isFile
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFile!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         named("debug") {
             applicationIdSuffix = ".debug"
@@ -124,6 +156,9 @@ configure<ApplicationExtension> {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             isMinifyEnabled = true
             isShrinkResources = true
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
 
         create("benchmark") {
