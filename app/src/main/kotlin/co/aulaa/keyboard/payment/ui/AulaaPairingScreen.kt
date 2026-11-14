@@ -18,10 +18,16 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.LinkOff
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Sync
@@ -40,10 +46,20 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import co.aulaa.keyboard.payment.data.AulaaApi
 import co.aulaa.keyboard.payment.data.AulaaAttestation
@@ -54,12 +70,31 @@ import dev.patrickgold.jetpref.material.ui.JetPrefAlertDialog
 import kotlinx.coroutines.launch
 
 /**
+ * VisualTransformation that formats an 8-character pairing code as `XXXX-XXXX`
+ * automatically (inserting `-` as soon as the 4th character is typed).
+ */
+private object PairingCodeHyphenVisualTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val raw = text.text
+        if (raw.length < 4) {
+            return TransformedText(text, OffsetMapping.Identity)
+        }
+        val formatted = "${raw.substring(0, 4)}-${raw.substring(4)}"
+        val offsetMapping = object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int {
+                return if (offset < 4) offset else (offset + 1).coerceAtMost(formatted.length)
+            }
+
+            override fun transformedToOriginal(offset: Int): Int {
+                return if (offset <= 4) offset else (offset - 1).coerceAtMost(raw.length)
+            }
+        }
+        return TransformedText(AnnotatedString(formatted), offsetMapping)
+    }
+}
+
+/**
  * Companion-app Pairing & Merchant Device Management screen.
- *
- * Uses the exact same Material 3 [SegmentedListColumn], [Preference], and
- * [JetPrefAlertDialog] components as all other settings screens in the app,
- * plus an integrated camera QR scanner ([AulaaQrScannerDialog]) for scanning
- * the pairing barcode directly from the Aulaa Web Dashboard.
  */
 @Composable
 fun AulaaPairingContent(
@@ -74,7 +109,7 @@ fun AulaaPairingContent(
     val session by pairingStore.sessionFlow.collectAsState()
 
     var codeInput by remember(initialPairingCode) {
-        mutableStateOf(extractCodeFromInput(initialPairingCode.orEmpty()))
+        mutableStateOf(normalizePairingCodeDigits(extractCodeFromInput(initialPairingCode.orEmpty())))
     }
     var deviceNameInput by remember {
         mutableStateOf(defaultDeviceName())
@@ -134,7 +169,7 @@ fun AulaaPairingContent(
         }
     }
 
-    fun openPairingFlow() {
+    fun openQrScannerFlow() {
         val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.CAMERA,
@@ -150,15 +185,15 @@ fun AulaaPairingContent(
     LaunchedEffect(initialPairingCode) {
         val codeFromQr = extractCodeFromInput(initialPairingCode.orEmpty())
         if (codeFromQr.isNotBlank()) {
-            codeInput = codeFromQr
+            codeInput = normalizePairingCodeDigits(codeFromQr)
             submitClaim(codeFromQr)
         }
     }
 
     Column(modifier = modifier) {
         SegmentedListColumn {
-            val count = 2
             if (session != null) {
+                val count = 2
                 Preference(
                     shapes = ListItemDefaults.segmentedShapes(0, count),
                     icon = Icons.Outlined.CheckCircle,
@@ -174,23 +209,35 @@ fun AulaaPairingContent(
                     onClick = {},
                 )
             } else {
+                val count = 3
                 Preference(
                     shapes = ListItemDefaults.segmentedShapes(0, count),
                     icon = Icons.Default.QrCodeScanner,
-                    title = if (claiming) "Menghubungkan Perangkat…" else "Hubungkan Perangkat",
+                    title = if (claiming) "Menghubungkan Perangkat…" else "Scan QR Code Pairing",
                     summary = if (claiming) {
                         "Memverifikasi perangkat & kode pairing…"
                     } else {
-                        "Belum terhubung · Scan QR Code atau ketik kode dari Dashboard Web Aulaa"
+                        "Scan QR Code langsung dari dialog Hubungkan Keyboard di Dashboard Web Aulaa"
                     },
                     onClick = {
                         if (!claiming) {
-                            openPairingFlow()
+                            openQrScannerFlow()
                         }
                     },
                 )
                 Preference(
                     shapes = ListItemDefaults.segmentedShapes(1, count),
+                    icon = Icons.Default.Keyboard,
+                    title = "Ketik Kode Pairing Manual (XXXX-XXXX)",
+                    summary = "Masukkan kode 8 karakter dari Dashboard Web Aulaa",
+                    onClick = {
+                        if (!claiming) {
+                            showManualCodeDialog = true
+                        }
+                    },
+                )
+                Preference(
+                    shapes = ListItemDefaults.segmentedShapes(2, count),
                     icon = Icons.Outlined.Smartphone,
                     title = "Nama Perangkat",
                     summary = deviceNameInput,
@@ -211,8 +258,19 @@ fun AulaaPairingContent(
                     Preference(
                         shapes = ListItemDefaults.segmentedShapes(index, totalItems),
                         icon = Icons.Outlined.Storefront,
-                        title = prj.name,
-                        summary = "${if (prj.isProd) "Production" else "Sandbox"} · ${prj.status}",
+                        title = prj.displayLabel(),
+                        summary = "${if (prj.isProd) "Production (Live)" else "Sandbox (Testing)"} · ${prj.status}",
+                        trailing = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                ProjectEnvironmentDot(isProd = prj.isProd)
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    text = if (prj.isProd) "Live" else "Sandbox",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        },
                         onClick = {},
                     )
                 }
@@ -269,38 +327,67 @@ fun AulaaPairingContent(
             onResult = { scannedRaw ->
                 showQrScanner = false
                 val extracted = extractCodeFromInput(scannedRaw)
-                codeInput = extracted
+                codeInput = normalizePairingCodeDigits(extracted)
                 submitClaim(extracted)
             },
         )
     }
 
     if (showManualCodeDialog) {
-        var draftCode by remember { mutableStateOf(codeInput) }
+        var draftRaw by remember { mutableStateOf(normalizePairingCodeDigits(codeInput)) }
         JetPrefAlertDialog(
             title = "Masukkan Kode Pairing",
             confirmLabel = "Hubungkan",
             onConfirm = {
                 showManualCodeDialog = false
-                codeInput = draftCode
-                submitClaim(draftCode)
+                codeInput = draftRaw
+                val formattedCode = if (draftRaw.length > 4) {
+                    "${draftRaw.substring(0, 4)}-${draftRaw.substring(4)}"
+                } else {
+                    draftRaw
+                }
+                submitClaim(formattedCode)
             },
             dismissLabel = "Batal",
             onDismiss = { showManualCodeDialog = false },
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Masukkan kode 8 karakter dari dialog \"Hubungkan Aulaa Keyboard\" di Dashboard Web Aulaa.",
+                    text = "Masukkan kode 8 karakter dari dialog \"Hubungkan Aulaa Keyboard\" di Dashboard Web Aulaa. Tanda strip (-) ditambahkan otomatis.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
-                    value = draftCode,
-                    onValueChange = { draftCode = extractCodeFromInput(it) },
-                    placeholder = { Text("ABCD-EFGH") },
+                    value = draftRaw,
+                    onValueChange = { input ->
+                        val extracted = extractCodeFromInput(input)
+                        draftRaw = normalizePairingCodeDigits(extracted)
+                    },
+                    label = { Text("Kode Pairing (XXXX-XXXX)") },
+                    placeholder = {
+                        Text(
+                            text = "ABCD-EFGH",
+                            style = TextStyle(
+                                fontFamily = FontFamily.Monospace,
+                                letterSpacing = 2.sp,
+                            ),
+                        )
+                    },
+                    visualTransformation = PairingCodeHyphenVisualTransformation,
+                    textStyle = TextStyle(
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
+                        textAlign = TextAlign.Center,
+                    ),
+                    supportingText = {
+                        Text("${draftRaw.length}/8 karakter")
+                    },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Characters,
+                        autoCorrectEnabled = false,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -329,7 +416,7 @@ fun AulaaPairingContent(
             OutlinedTextField(
                 value = draftName,
                 onValueChange = { draftName = it.take(100) },
-                placeholder = { Text("mis. Pixel 8 Pro") },
+                placeholder = { Text("mis. Samsung Galaxy Z Fold 7") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -358,6 +445,10 @@ fun AulaaPairingContent(
             )
         }
     }
+}
+
+private fun normalizePairingCodeDigits(raw: String): String {
+    return raw.filter { it.isLetterOrDigit() }.uppercase().take(8)
 }
 
 /**

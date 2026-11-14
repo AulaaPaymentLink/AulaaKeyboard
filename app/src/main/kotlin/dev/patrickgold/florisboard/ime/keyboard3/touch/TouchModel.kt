@@ -198,7 +198,7 @@ private fun computeTouchKeyboard(
     options: TouchModelOptions,
 ): TouchKeyboard {
     val layers = layersGroup.layers
-    val keyPredicate = { key: K3Key -> options.fnKeyEnabled || key.id != TouchKey.FnKeyId }
+    val keyPredicate = { _: K3Key -> true }
 
     val numberRow = if (options.showNumberRow) {
         val numberRowLayer = layers[ImeLayerIds.Numrow]
@@ -338,7 +338,7 @@ private fun computeTouchKeyboard(
                         isFnKey -> null // TODO
                         else -> key.flickId?.let { model.flicks.byFlickId[it] }
                     }
-                    val attrs = if (isFnKey) options.fnKeyArrangement.simpleAction.asK3Key() else key
+                    val attrs = if (isFnKey) FnKeyAction(ImeActions.ShowAulaaPanel).asK3Key() else key
                     val display = computeKeyDisplay(model, attrs)
                     val touchKey = TouchKey(
                         bounds = keyBoundsPx,
@@ -357,7 +357,7 @@ private fun computeTouchKeyboard(
                         isSuitableForSimplePopup = attrs.isSuitableForSimplePopup(),
                         isSuitableForExtendedPopup = popups.isNotEmpty(),
                         extendedPopupKeys = popups,
-                        longPressKeyHint = if (options.longPressKeyHintEnabled) popups.firstOrNull()?.display else null,
+                        longPressKeyHint = if (options.longPressKeyHintEnabled && !isFnKey) popups.firstOrNull()?.display else null,
                         longPressKeyHintPlacement = options.longPressKeyHintPlacement,
                         shouldOverrideDisplayWithMultiTapKeys =
                             model.displays.byKeyId[key.id] == null && multiTapKeys.isNotEmpty(),

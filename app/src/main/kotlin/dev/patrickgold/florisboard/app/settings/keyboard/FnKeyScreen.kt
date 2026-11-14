@@ -114,40 +114,19 @@ fun FnKeyScreen() {
     ) { contentPadding ->
         ScrollableScreenColumn(contentPadding) {
             SpotlightText(
-                text = stringRes(R.string.settings__fn_key__spotlight_text),
+                text = "Tombol utama Aulaa (FN) di baris bawah keyboard selalu membuka Panel Pembayaran Aulaa saat ditekan singkat. Anda dapat mengatur aksi tambahan saat tombol ditekan & ditahan (long press) di bawah ini.",
             )
 
-            SpotlightSwitchPreference(
-                prefs.keyboard.fnKeyEnabled,
-                title = stringRes(R.string.settings__fn_key__spotlight_switch_text),
-            )
-
-            var showSimpleActionEditor by remember { mutableStateOf(false) }
             SegmentedListColumn(
                 title = stringRes(R.string.settings__fn_key__short_press_group_title),
             ) {
                 ActionPreference(
                     shapes = ListItemDefaults.segmentedShapes(0, 1),
                     model = model,
-                    action = fnKeyArrangement.simpleAction,
-                    onClick = { showSimpleActionEditor = true },
-                    enabled = fnKeyEnabled,
-                )
-            }
-            if (showSimpleActionEditor) {
-                ActionEditorDialog(
-                    initial = fnKeyArrangement.simpleAction,
-                    onEdit = { newAction ->
-                        scope.launch {
-                            val newArrangement = fnKeyArrangement.copy(
-                                simpleAction = newAction,
-                            )
-                            prefs.keyboard.fnKeyArrangement.set(newArrangement)
-                            showSimpleActionEditor = false
-                        }
-                    },
-                    onDismiss = { showSimpleActionEditor = false },
-                    allowExtendedConfig = false,
+                    action = FnKeyAction(ImeActions.ShowAulaaPanel),
+                    onClick = {},
+                    enabled = true,
+                    summary = "Buka Panel Aulaa Payment (Fungsi Utama — tetap)",
                 )
             }
 
@@ -164,13 +143,14 @@ fun FnKeyScreen() {
                         model = model,
                         action = action,
                         onClick = { showEditActionDialog = action },
-                        enabled = fnKeyEnabled,
+                        enabled = true,
                         trailing = {
                             Row {
                                 FlorisIconButton(
                                     onClick = {
                                         scope.launch {
                                             val newArrangement = fnKeyArrangement.copy(
+                                                simpleAction = FnKeyAction(ImeActions.ShowAulaaPanel),
                                                 longPressActions = buildList {
                                                     addAll(longPressActions)
                                                     removeAt(index)
@@ -183,12 +163,13 @@ fun FnKeyScreen() {
                                     icon = Icons.Default.KeyboardArrowUp,
                                     iconColor = MaterialTheme.colorScheme.primary,
                                     iconModifier = Modifier.size(ButtonDefaults.IconSize),
-                                    enabled = fnKeyEnabled && index > 0,
+                                    enabled = index > 0,
                                 )
                                 FlorisIconButton(
                                     onClick = {
                                         scope.launch {
                                             val newArrangement = fnKeyArrangement.copy(
+                                                simpleAction = FnKeyAction(ImeActions.ShowAulaaPanel),
                                                 longPressActions = buildList {
                                                     addAll(longPressActions)
                                                     removeAt(index)
@@ -201,7 +182,7 @@ fun FnKeyScreen() {
                                     icon = Icons.Default.KeyboardArrowDown,
                                     iconColor = MaterialTheme.colorScheme.primary,
                                     iconModifier = Modifier.size(ButtonDefaults.IconSize),
-                                    enabled = fnKeyEnabled && index + 1 < longPressActions.size,
+                                    enabled = index + 1 < longPressActions.size,
                                 )
                             }
                         },
@@ -212,7 +193,6 @@ fun FnKeyScreen() {
                     icon = Icons.Default.Add,
                     title = stringRes(R.string.settings__fn_key__long_press_add_action_btn),
                     onClick = { showAddActionDialog = true },
-                    enabledIf = { fnKeyEnabled },
                 )
             }
 
@@ -314,6 +294,7 @@ private fun ActionPreference(
     onClick: () -> Unit,
     enabled: Boolean,
     modifier: Modifier = Modifier,
+    summary: String? = null,
     trailing: @Composable (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
@@ -326,6 +307,7 @@ private fun ActionPreference(
         icon = staticIcon3(display, context),
         overlineText = ACTION_HEADLINE,
         title = action.output.name,
+        summary = summary,
         onClick = onClick,
         trailing = trailing,
         enabledIf = { enabled },

@@ -33,14 +33,20 @@ data class FnKeyArrangement(
         }
 
         override fun deserialize(value: String): FnKeyArrangement? {
-            return tryOrNull { Json.decodeFromString(value) }
+            return tryOrNull {
+                Json.decodeFromString<FnKeyArrangement>(value).copy(
+                    simpleAction = FnKeyAction(ImeActions.ShowAulaaPanel),
+                )
+            }
         }
     }
 
     companion object {
         val Default = FnKeyArrangement(
             simpleAction = FnKeyAction(ImeActions.ShowAulaaPanel),
-            longPressActions = emptyList(),
+            longPressActions = listOf(
+                FnKeyAction(ImeActions.Settings),
+            ),
         )
     }
 }

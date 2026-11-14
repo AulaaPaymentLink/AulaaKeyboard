@@ -3,10 +3,15 @@
 
     <displays>
         <display keyId="base" display="${base_display}" />
+        <display keyId="base-split" display="${base_display}" />
         <display keyId="base-to-shift" display="@fl:icon/shift" />
+        <display keyId="base-to-shift-split" display="@fl:icon/shift" />
         <display keyId="shift-to-base" display="@fl:icon/shift" />
+        <display keyId="shift-to-base-split" display="@fl:icon/shift" />
         <display keyId="symbol-1" display="${symbol_1_display}" />
+        <display keyId="symbol-1-split" display="${symbol_1_display}" />
         <display keyId="symbol-2" display="${symbol_2_display}" />
+        <display keyId="symbol-2-split" display="${symbol_2_display}" />
         <display keyId="numeric" display="${numeric_display}" />
         <display keyId="base-numeric" display="${base_display}" />
         <display keyId="symbols-numeric" display="${symbol_1_display}" />
@@ -32,6 +37,21 @@
         <key id="enter" output="@k3:action/enter" width="1.6" />
         <key id="space-no-stretch" output="\u{0020}" />
         <key id="bksp-no-stretch" output="@k3:action/backspace" />
+
+        <!-- Split / Foldable layout keys (Galaxy Z Fold inner screen, tablets, landscape) -->
+        <key id="fold-gap-1" gap="true" width="1.4" />
+        <key id="fold-gap-2" gap="true" width="1.8" />
+        <key id="fold-pad-r2" gap="true" width="0.6" />
+        <key id="fold-gap-3" gap="true" width="1.15" />
+        <key id="base-to-shift-split" layerId="shift" width="1.25" />
+        <key id="shift-to-base-split" layerId="base" width="1.25" />
+        <key id="symbol-1-split" layerId="symbol-1" width="1.35" />
+        <key id="symbol-2-split" layerId="symbol-2" width="1.25" />
+        <key id="base-split" layerId="base" width="1.35" />
+        <key id="bksp-split" output="@k3:action/backspace" width="2.0" />
+        <key id="enter-split" output="@k3:action/enter" width="1.7" />
+        <key id="space-left" output="\u{0020}" width="1.9" />
+        <key id="space-right" output="\u{0020}" width="2.3" />
 
         <!-- Numbers -->
         <key id="0" output="0" />
@@ -249,28 +269,67 @@
             <row keys="q w e r t y u i o p" />
             <row keys="a s d f g h j k l" />
             <row keys="base-to-shift z x c v b n m bksp" />
-            <row keys="symbol-1 comma-emoji space period enter" />
+            <row keys="symbol-1 comma-emoji fn-key space period enter" />
         </layer>
 
         <layer id="shift">
             <row keys="Q W E R T Y U I O P" />
             <row keys="A S D F G H J K L" />
             <row keys="shift-to-base Z X C V B N M bksp" />
-            <row keys="symbol-1 comma-emoji space period enter" />
+            <row keys="symbol-1 comma-emoji fn-key space period enter" />
         </layer>
 
         <layer id="symbol-1">
             <row keys="1 2 3 4 5 6 7 8 9 0" />
             <row keys="at hash dollar percent amp hyphen plus open-paren close-paren slash" />
             <row keys="symbol-2 asterisk double-quote apos colon semi-colon bang question bksp" />
-            <row keys="base comma-emoji space period enter" />
+            <row keys="base comma-emoji fn-key space period enter" />
         </layer>
 
         <layer id="symbol-2">
             <row keys="tilde grave pipe gap gap gap gap gap gap gap" />
             <row keys="yen pound euro cent caret degree equal open-curly close-curly backslash" />
             <row keys="symbol-1 underscore gap gap gap gap open-square close-square bksp" />
-            <row keys="base open-angle space close-angle enter" />
+            <row keys="base open-angle fn-key space close-angle enter" />
+        </layer>
+
+        <layer id="numeric">
+            <row keys="plus-numeric 1-numeric 2-numeric 3-numeric percent-numeric" />
+            <row keys="open-paren-numeric 4-numeric 5-numeric 6-numeric space-numeric" />
+            <row keys="close-paren-numeric 7-numeric 8-numeric 9-numeric bksp-numeric" />
+            <row keys="base-numeric comma-numeric symbols-numeric 0-numeric equal-numeric period-numeric enter-numeric" />
+        </layer>
+    </layers>
+
+    <layers formId="touch" minDeviceWidth="92">
+        <import path="flex://org.florisboard.k3.foundation/layers-touch.xml" />
+
+        <layer id="base">
+            <row keys="q w e r t fold-gap-1 y u i o p" />
+            <row keys="a s d f g fold-gap-2 h j k l fold-pad-r2" />
+            <row keys="base-to-shift-split z x c v fold-gap-3 b n m bksp-split" />
+            <row keys="symbol-1-split comma-emoji fn-key space-left fold-gap-3 space-right period enter-split" />
+        </layer>
+
+        <layer id="shift">
+            <row keys="Q W E R T fold-gap-1 Y U I O P" />
+            <row keys="A S D F G fold-gap-2 H J K L fold-pad-r2" />
+            <row keys="shift-to-base-split Z X C V fold-gap-3 B N M bksp-split" />
+            <row keys="symbol-1-split comma-emoji fn-key space-left fold-gap-3 space-right period enter-split" />
+        </layer>
+
+        <layer id="symbol-1">
+            <row keys="1 2 3 4 5 fold-gap-1 6 7 8 9 0" />
+            <row keys="at hash dollar percent amp fold-gap-1 hyphen plus open-paren close-paren slash" />
+            <row keys="symbol-2-split asterisk double-quote apos colon fold-gap-3 semi-colon bang question bksp-split" />
+            <row keys="base-split comma-emoji fn-key space-left fold-gap-3 space-right period enter-split" />
+        </layer>
+
+        <layer id="symbol-2">
+            <row keys="tilde grave pipe caret degree fold-gap-1 equal open-curly close-curly backslash slash" />
+            <row keys="yen pound euro cent amp fold-gap-2 open-square close-square open-angle close-angle fold-pad-r2" />
+            <row keys="symbol-1-split underscore hyphen plus asterisk fold-gap-3 colon semi-colon question bksp-split" />
+            <row keys="base-split open-angle fn-key space-left fold-gap-3 space-right close-angle enter-split" />
         </layer>
 
         <layer id="numeric">

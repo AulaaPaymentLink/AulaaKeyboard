@@ -62,7 +62,6 @@ fun TextInputLayout(
             .fillMaxWidth()
             .wrapContentHeight(),
     ) {
-        Smartbar()
         Box {
             val incognitoDisplayMode by prefs.keyboard.incognitoDisplayMode.collectAsState()
             val showIncognitoIcon = isIncognitoMode &&
