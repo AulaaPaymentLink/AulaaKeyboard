@@ -4,19 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [ main ]
-    paths-ignore:
-      - ".github/ISSUE_TEMPLATE/**"
-      - ".github/PULL_REQUEST_TEMPLATE.md"
-      - ".github/FUNDING.yml"
-      - ".dockerignore"
-      - ".editorconfig"
-      - "fastlane/**"
-      - "AI_POLICY.md"
-      - "CODE_OF_CONDUCT.md"
-      - "CONTRIBUTING.md"
-      - "LICENSE"
-      - "README.md"
-      - "ROADMAP.md"
   pull_request:
     branches: [ main ]
 
@@ -45,7 +32,7 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
 
       - name: Build Signed Release AAB & APK (Play Store)
-        if: github.event_name != 'pull_request' && env.KEYSTORE_BASE64 != ''
+        if: github.event_name != 'pull_request'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_FILE: release-upload.jks
@@ -53,8 +40,12 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
-          ./gradlew bundleRelease assembleRelease
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_FILE"
+            ./gradlew bundleRelease assembleRelease
+          else
+            echo "KEYSTORE_BASE64 secret is not set, skipping release signing."
+          fi
       - name: Remove temporary keystore
         if: always()
         run: rm -f release-upload.jks
